@@ -259,7 +259,7 @@ function App() {
       let newStatus = cur.status;
       if (result === 'known') {
         correctCount++;
-        newStatus = correctCount >= 2 ? 'known' : 'learning';
+        newStatus = 'known';
       } else if (result === 'hard') {
         newStatus = 'learning';
       } else {
