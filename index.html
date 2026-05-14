@@ -1,997 +1,997 @@
-import { useState, useEffect, useMemo, useRef } from ‘react’;
-import { ChevronLeft, ChevronRight, Check, X, BarChart3, Layers, Shuffle, ArrowLeftRight, RotateCcw, Sparkles, Brain } from ‘lucide-react’;
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#EFE7D6" />
+<title>Wirtschaft · Словарь</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #EFE7D6; }
+  body { font-family: 'Geist', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  #root { min-height: 100vh; }
+  .display { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .card-flip-container { perspective: 1500px; }
+  .card-flip { transform-style: preserve-3d; transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
+  .card-flip.flipped { transform: rotateY(180deg); }
+  .card-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; position: absolute; inset: 0; }
+  .card-back { transform: rotateY(180deg); }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.35s ease-out; }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  .shake { animation: shake 0.35s ease-in-out; }
+  button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:active { transform: scale(0.97); }
+  .tab-btn { transition: all 0.2s ease; }
+  .grain { background-image: radial-gradient(circle at 1px 1px, rgba(26,22,18,0.04) 1px, transparent 0); background-size: 4px 4px; }
+  .app-shell { max-width: 480px; margin: 0 auto; }
+</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
 
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo } = React;
+
+// ---- Inline lucide icons ----
+function Icon({ children, size = 16, strokeWidth = 2, style }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={style}
+    >
+      {children}
+    </svg>
+  );
+}
+const ChevronLeft  = (p) => <Icon {...p}><path d="m15 18-6-6 6-6" /></Icon>;
+const ChevronRight = (p) => <Icon {...p}><path d="m9 18 6-6-6-6" /></Icon>;
+const Check        = (p) => <Icon {...p}><path d="M20 6 9 17l-5-5" /></Icon>;
+const X            = (p) => <Icon {...p}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></Icon>;
+const BarChart3    = (p) => <Icon {...p}><path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></Icon>;
+const Layers       = (p) => <Icon {...p}><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" /><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" /></Icon>;
+const Shuffle      = (p) => <Icon {...p}><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22" /><path d="m18 2 4 4-4 4" /><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2" /><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8" /><path d="m18 14 4 4-4 4" /></Icon>;
+const ArrowLeftRight = (p) => <Icon {...p}><path d="M8 3 4 7l4 4" /><path d="M4 7h16" /><path d="m16 21 4-4-4-4" /><path d="M20 17H4" /></Icon>;
+const RotateCcw    = (p) => <Icon {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></Icon>;
+const Sparkles     = (p) => <Icon {...p}><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z" /><path d="M20 3v4" /><path d="M22 5h-4" /><path d="M4 17v2" /><path d="M5 18H3" /></Icon>;
+const Brain        = (p) => <Icon {...p}><path d="M12 5a3 3 0 1 0-5.99.12 4 4 0 0 0-1.9 5.65A4 4 0 0 0 6 17a4 4 0 0 0 6 3 4 4 0 0 0 6-3 4 4 0 0 0 1.9-6.23 4 4 0 0 0-1.89-5.65A3 3 0 1 0 12 5" /><path d="M12 5v15" /></Icon>;
+
+// ---- Vocabulary ----
 const VOCAB = [
-{ id: 1, de: “durch die Gewerbefreiheit gekennzeichnet sein”, ru: “характеризоваться свободой предпринимательства (свободой производства)” },
-{ id: 2, de: “durch die Handlungsfreiheit im wirtschaftlichen Bereich gekennzeichnet sein”, ru: “характеризоваться свободой действий в экономической сфере” },
-{ id: 3, de: “etwas in Gang setzen”, ru: “запустить что-либо, начинать что-либо (какой-либо процесс), привести что-либо в движение” },
-{ id: 4, de: “der Wettbewerb, -e”, ru: “конкуренция, конкурентная борьба, конкурс, соревнование” },
-{ id: 5, de: “die Planwirtschaft durch die soziale Marktwirtschaft ablösen”, ru: “заменять плановую экономику на социальную рыночную” },
-{ id: 6, de: “mit Anpassungsproblemen verbunden sein”, ru: “быть связанным с проблемами адаптации” },
-{ id: 7, de: “durch das Recht auf Privateigentum gekennzeichnet sein”, ru: “характеризоваться правом на частную собственность” },
-{ id: 8, de: “an der Koordinierung der Wirtschafts- und Finanzpolitik mitwirken”, ru: “участвовать в координации экономической и финансовой политики” },
-{ id: 9, de: “einer starken Innovationskraft und hoher Exportorientierung verdanken”, ru: “благодаря мощному инновационному потенциалу и сильной экспортоориентированности” },
-{ id: 10, de: “das strukturelle Rückgrat der Wirtschaft bilden”, ru: “составлять структурную основу экономики” },
-{ id: 11, de: “den Euro als Bargeld einführen”, ru: “вводить Евро в качестве средства наличного расчёта / в наличное обращение” },
-{ id: 12, de: “leistungsfähige Hochtechnologiezentren bilden”, ru: “образовывать высокотехнологичные производственные центры” },
-{ id: 13, de: “zu den wichtigen Industriezweigen gehören”, ru: “относиться к важным отраслям промышленности” },
-{ id: 14, de: “Roh- und Halbstoffe einführen”, ru: “ввозить / импортировать сырьё и полуфабрикаты” },
-{ id: 15, de: “Fertigproduktion ausführen”, ru: “вывозить / экспортировать готовую продукцию” },
-{ id: 16, de: “über eine leistungsfähige Landwirtschaft verfügen”, ru: “располагать продуктивным сельским хозяйством” },
-{ id: 17, de: “international stark verflochtene Volkswirtschaft”, ru: “экономика страны, сильно интегрированная в мировую экономику” },
-{ id: 18, de: “ein hoch entwickeltes Industrieland”, ru: “высокоразвитое индустриальное государство” },
-{ id: 19, de: “sich zu einer sozialen marktwirtschaftlichen Ordnung entwickeln”, ru: “развиваться по социальному рыночному пути / совершать переход к социально-ориентированной рыночной экономике” },
-{ id: 20, de: “die ehemalige DDR”, ru: “бывшая ГДР” },
-{ id: 21, de: “dezentral durch den Markt steuern”, ru: “управлять децентрализовано посредством рынка” },
-{ id: 22, de: “das umfassende Netz verschiedener Sozialleistungen”, ru: “широкая сеть различных социальных выплат / пособий” },
-{ id: 23, de: “den Bürgern garantieren”, ru: “гарантировать гражданам” },
-{ id: 24, de: “verschiedene Arten von Versicherungen”, ru: “разные виды страхований” },
-{ id: 25, de: “für die Geldpolitik zuständig sein”, ru: “быть ответственным / отвечать за денежную политику” },
-{ id: 26, de: “die größte Volkswirtschaft der Europäischen Union”, ru: “самая крупная экономика Евросоюза” },
-{ id: 27, de: “der hohe Einsatz von IT”, ru: “активное / интенсивное использование информационных технологий” },
-{ id: 28, de: “auf die Entwicklung und Herstellung komplexer Güter spezialisiert sein”, ru: “специализироваться на разработке и производстве сложно-технической продукции” },
-{ id: 29, de: “der wichtige Finanzplatz”, ru: “важный финансовый центр” },
-{ id: 30, de: “über die Preisstabilität wachen”, ru: “следить за стабильностью курса Евро” },
-{ id: 31, de: “das Land mit der höchsten Beschäftigungsquote”, ru: “страна с самым высоким уровнем занятости” },
-{ id: 32, de: “das größte Industrieunternehmen der Welt”, ru: “самое крупное промышленное предприятие в мире” },
-{ id: 33, de: “eine wichtige Rolle im wirtschaftlichen Leben des Landes spielen”, ru: “играть важную роль в экономической жизни страны” },
-{ id: 34, de: “den dritten Platz im Welthandel einnehmen”, ru: “занимать третье место в международной / мировой торговле” },
-{ id: 35, de: “vom Export abhängen”, ru: “зависеть от экспорта” },
-{ id: 36, de: “im Außenhandel tätig sein”, ru: “быть занятым в сфере торговли” },
-{ id: 37, de: “eine große Abhängigkeit von der Außenwirtschaft”, ru: “большая зависимость от внешней торговли” },
-{ id: 39, de: “ein dicht besiedeltes Industrieland mit geringen eigenen Rohstoffvorkommen”, ru: “густо населённая индустриальная страна с низким уровнем ресурсообеспеченности” },
-{ id: 40, de: “über einen hohen Stand der Technologie und einen leistungsfähigen Produktionsapparat verfügen”, ru: “располагать высоким уровнем технологического развития и эффективным производственным аппаратом” },
-{ id: 41, de: “als Drehscheibe des Welthandels gelten”, ru: “считаться центром мировой торговли” },
-{ id: 42, de: “die Nummer eins bei Organisation und Durchführung internationaler Messen und Ausstellungen sein”, ru: “быть лидером в сфере организации и проведения международных ярмарок и выставок” },
-{ id: 43, de: “das Anbauprodukt, -e”, ru: “выращиваемая сельскохозяйственная культура” },
-{ id: 44, de: “das Bruttoinlandsprodukt”, ru: “внутренний валовой продукт” },
-{ id: 45, de: “die Drehscheibe für Waren und Dienstleistungen”, ru: “перевалочный пункт для товаров и услуг” },
-{ id: 46, de: “von der EU-Erweiterung profitieren”, ru: “извлекать выгоду из расширения Евросоюза” },
-{ id: 47, de: “der offene Markt”, ru: “открытый рынок” },
-{ id: 48, de: “in allen Bereichen offen für unternehmerische Investitionen sein”, ru: “быть открытым для инвестиций предпринимателей во всех сферах” },
-{ id: 49, de: “qualifizierte, motivierte und verantwortungsbewusste Spitzenkräfte bieten”, ru: “предоставлять квалифицированных, мотивированных и ответственных высококлассных специалистов” },
-{ id: 50, de: “das hohe Niveau der Kenntnisse und Fähigkeiten der Arbeitskräfte”, ru: “высокий уровень знаний и умений специалистов / работников” },
-{ id: 51, de: “international anerkannt sein”, ru: “быть признанным во всём мире, иметь мировое признание” },
-{ id: 52, de: “staatlich beherrschte Wirtschaftszweige”, ru: “отрасли экономики, контролируемые государством” },
-{ id: 53, de: “im Fokus stehen”, ru: “быть / находиться в центре внимания” },
-{ id: 54, de: “den Bedarf an … Dativ decken”, ru: “покрывать потребность в чём-либо” },
-{ id: 55, de: “innerbetriebliche mit schulischer Ausbildung verbinden”, ru: “объединять обучение в школе с производственной практикой” },
-{ id: 56, de: “eine hohe Ausbildungsqualität hervorbringen”, ru: “обеспечивать высокое качество образования” },
-{ id: 57, de: “das weltmarktrelevante Patent, -e”, ru: “значимый на мировом рынке патент” },
-{ id: 58, de: “die Zahl der Patentanmeldungen verdoppelt sich”, ru: “количество заявок на патенты удваивается” },
-{ id: 59, de: “die enge Zusammenarbeit der Wirtschaft mit den großen weltbekannten Forschungseinrichtungen”, ru: “тесное сотрудничество экономики с крупными известными во всём мире исследовательскими институтами” },
-{ id: 60, de: “aus neuen Ideen werden weltmarktfähige Produkte”, ru: “новые идеи быстро превращаются в конкурентоспособную на мировом рынке продукцию” },
-{ id: 61, de: “über ein dichtes Netz von Autobahnen, Eisenbahnlinien und internationalen Flughäfen verfügen”, ru: “располагать развитой сетью автобанов, железнодорожных линий и аэропортов” },
-{ id: 62, de: “schnelle Verbindungen garantieren”, ru: “гарантировать быстрое сообщение” },
-{ id: 63, de: “der moderne Rechtsstaat mit transparenten Regelungen”, ru: “современное правовое государство с прозрачным правовым регулированием” },
-{ id: 64, de: “den Anteil am Welthandel erhöhen”, ru: “повышать долю в мировой торговле” },
-{ id: 65, de: “ausländischen Investoren gegenüber aufgeschlossen sein”, ru: “быть открытым для зарубежных / иностранных инвестиций” },
-{ id: 66, de: “das Ausbildungssystem orientiert sich eng an den Bedürfnissen der Wirtschaft”, ru: “система образования ориентируется непосредственно на потребности экономики” },
-{ id: 67, de: “hoch im Kurs bei Dativ stehen”, ru: “быть уважаемым кем-либо, высоко цениться, пользоваться авторитетом” },
-{ id: 68, de: “Waren / Güter herstellen / produzieren / erzeugen”, ru: “производить товары” },
-{ id: 69, de: “die hervorragend ausgebaute Kommunikationsinfrastruktur”, ru: “превосходно / отлично развитая структура коммуникаций” },
-{ id: 70, de: “kleine und mittelgroße Firmen”, ru: “мелкие и средние фирмы / компании” },
-{ id: 71, de: “flexibel, vielfältig und wettbewerbsfähig sein”, ru: “быть гибким, разнообразным и конкурентоспособным” },
-{ id: 72, de: “der Weltmarktführer in dem Bereich”, ru: “лидер на мировом рынке в этой отрасли / сфере” },
-{ id: 73, de: “die Rechtssicherheit”, ru: “обеспечение правовых гарантий, обеспеченность правового порядка” },
-{ id: 74, de: “mittelständisch geprägt sein”, ru: “средние фирмы / компании определяют (структуру экономики)” },
-{ id: 75, de: “weltweit für die höchste Qualität stehen”, ru: “отвечать во всём мире за самое высокое качество” },
-{ id: 76, de: “deutsche Produkte mit dem Gütesiegel „Made in Germany“”, ru: “продукция из Германии со знаком качества „Made in Germany“” },
-{ id: 77, de: “von dem Gütesiegel „Made in Germany“ profitieren”, ru: “извлекать выгоду из знака качества „Made in Germany“” },
-{ id: 78, de: “der Warenexportweltmeister”, ru: “мировой лидер по экспорту товаров и услуг” },
-{ id: 79, de: “stark im Kommen sein”, ru: “интенсивно / активно развиваться” },
-{ id: 80, de: “umweltfreundliche Energieerzeugung”, ru: “добыча экологически чистой электроэнергии” },
-{ id: 81, de: “das weltbekannte Markenzeichen”, ru: “известная во всём мире торговая марка / бренд” },
-{ id: 82, de: “die Niederlassung, -en eröffnen (gründen) = sich niederlassen”, ru: “открыть филиал” },
+  { id: 1,  de: "durch die Gewerbefreiheit gekennzeichnet sein", ru: "характеризоваться свободой предпринимательства (свободой производства)" },
+  { id: 2,  de: "durch die Handlungsfreiheit im wirtschaftlichen Bereich gekennzeichnet sein", ru: "характеризоваться свободой действий в экономической сфере" },
+  { id: 3,  de: "etwas in Gang setzen", ru: "запустить что-либо, начинать что-либо (какой-либо процесс), привести что-либо в движение" },
+  { id: 4,  de: "der Wettbewerb, -e", ru: "конкуренция, конкурентная борьба, конкурс, соревнование" },
+  { id: 5,  de: "die Planwirtschaft durch die soziale Marktwirtschaft ablösen", ru: "заменять плановую экономику на социальную рыночную" },
+  { id: 6,  de: "mit Anpassungsproblemen verbunden sein", ru: "быть связанным с проблемами адаптации" },
+  { id: 7,  de: "durch das Recht auf Privateigentum gekennzeichnet sein", ru: "характеризоваться правом на частную собственность" },
+  { id: 8,  de: "an der Koordinierung der Wirtschafts- und Finanzpolitik mitwirken", ru: "участвовать в координации экономической и финансовой политики" },
+  { id: 9,  de: "einer starken Innovationskraft und hoher Exportorientierung verdanken", ru: "благодаря мощному инновационному потенциалу и сильной экспортоориентированности" },
+  { id: 10, de: "das strukturelle Rückgrat der Wirtschaft bilden", ru: "составлять структурную основу экономики" },
+  { id: 11, de: "den Euro als Bargeld einführen", ru: "вводить Евро в качестве средства наличного расчёта / в наличное обращение" },
+  { id: 12, de: "leistungsfähige Hochtechnologiezentren bilden", ru: "образовывать высокотехнологичные производственные центры" },
+  { id: 13, de: "zu den wichtigen Industriezweigen gehören", ru: "относиться к важным отраслям промышленности" },
+  { id: 14, de: "Roh- und Halbstoffe einführen", ru: "ввозить / импортировать сырьё и полуфабрикаты" },
+  { id: 15, de: "Fertigproduktion ausführen", ru: "вывозить / экспортировать готовую продукцию" },
+  { id: 16, de: "über eine leistungsfähige Landwirtschaft verfügen", ru: "располагать продуктивным сельским хозяйством" },
+  { id: 17, de: "international stark verflochtene Volkswirtschaft", ru: "экономика страны, сильно интегрированная в мировую экономику" },
+  { id: 18, de: "ein hoch entwickeltes Industrieland", ru: "высокоразвитое индустриальное государство" },
+  { id: 19, de: "sich zu einer sozialen marktwirtschaftlichen Ordnung entwickeln", ru: "развиваться по социальному рыночному пути / совершать переход к социально-ориентированной рыночной экономике" },
+  { id: 20, de: "die ehemalige DDR", ru: "бывшая ГДР" },
+  { id: 21, de: "dezentral durch den Markt steuern", ru: "управлять децентрализовано посредством рынка" },
+  { id: 22, de: "das umfassende Netz verschiedener Sozialleistungen", ru: "широкая сеть различных социальных выплат / пособий" },
+  { id: 23, de: "den Bürgern garantieren", ru: "гарантировать гражданам" },
+  { id: 24, de: "verschiedene Arten von Versicherungen", ru: "разные виды страхований" },
+  { id: 25, de: "für die Geldpolitik zuständig sein", ru: "быть ответственным / отвечать за денежную политику" },
+  { id: 26, de: "die größte Volkswirtschaft der Europäischen Union", ru: "самая крупная экономика Евросоюза" },
+  { id: 27, de: "der hohe Einsatz von IT", ru: "активное / интенсивное использование информационных технологий" },
+  { id: 28, de: "auf die Entwicklung und Herstellung komplexer Güter spezialisiert sein", ru: "специализироваться на разработке и производстве сложно-технической продукции" },
+  { id: 29, de: "der wichtige Finanzplatz", ru: "важный финансовый центр" },
+  { id: 30, de: "über die Preisstabilität wachen", ru: "следить за стабильностью курса Евро" },
+  { id: 31, de: "das Land mit der höchsten Beschäftigungsquote", ru: "страна с самым высоким уровнем занятости" },
+  { id: 32, de: "das größte Industrieunternehmen der Welt", ru: "самое крупное промышленное предприятие в мире" },
+  { id: 33, de: "eine wichtige Rolle im wirtschaftlichen Leben des Landes spielen", ru: "играть важную роль в экономической жизни страны" },
+  { id: 34, de: "den dritten Platz im Welthandel einnehmen", ru: "занимать третье место в международной / мировой торговле" },
+  { id: 35, de: "vom Export abhängen", ru: "зависеть от экспорта" },
+  { id: 36, de: "im Außenhandel tätig sein", ru: "быть занятым в сфере торговли" },
+  { id: 37, de: "eine große Abhängigkeit von der Außenwirtschaft", ru: "большая зависимость от внешней торговли" },
+  { id: 39, de: "ein dicht besiedeltes Industrieland mit geringen eigenen Rohstoffvorkommen", ru: "густо населённая индустриальная страна с низким уровнем ресурсообеспеченности" },
+  { id: 40, de: "über einen hohen Stand der Technologie und einen leistungsfähigen Produktionsapparat verfügen", ru: "располагать высоким уровнем технологического развития и эффективным производственным аппаратом" },
+  { id: 41, de: "als Drehscheibe des Welthandels gelten", ru: "считаться центром мировой торговли" },
+  { id: 42, de: "die Nummer eins bei Organisation und Durchführung internationaler Messen und Ausstellungen sein", ru: "быть лидером в сфере организации и проведения международных ярмарок и выставок" },
+  { id: 43, de: "das Anbauprodukt, -e", ru: "выращиваемая сельскохозяйственная культура" },
+  { id: 44, de: "das Bruttoinlandsprodukt", ru: "внутренний валовой продукт" },
+  { id: 45, de: "die Drehscheibe für Waren und Dienstleistungen", ru: "перевалочный пункт для товаров и услуг" },
+  { id: 46, de: "von der EU-Erweiterung profitieren", ru: "извлекать выгоду из расширения Евросоюза" },
+  { id: 47, de: "der offene Markt", ru: "открытый рынок" },
+  { id: 48, de: "in allen Bereichen offen für unternehmerische Investitionen sein", ru: "быть открытым для инвестиций предпринимателей во всех сферах" },
+  { id: 49, de: "qualifizierte, motivierte und verantwortungsbewusste Spitzenkräfte bieten", ru: "предоставлять квалифицированных, мотивированных и ответственных высококлассных специалистов" },
+  { id: 50, de: "das hohe Niveau der Kenntnisse und Fähigkeiten der Arbeitskräfte", ru: "высокий уровень знаний и умений специалистов / работников" },
+  { id: 51, de: "international anerkannt sein", ru: "быть признанным во всём мире, иметь мировое признание" },
+  { id: 52, de: "staatlich beherrschte Wirtschaftszweige", ru: "отрасли экономики, контролируемые государством" },
+  { id: 53, de: "im Fokus stehen", ru: "быть / находиться в центре внимания" },
+  { id: 54, de: "den Bedarf an … Dativ decken", ru: "покрывать потребность в чём-либо" },
+  { id: 55, de: "innerbetriebliche mit schulischer Ausbildung verbinden", ru: "объединять обучение в школе с производственной практикой" },
+  { id: 56, de: "eine hohe Ausbildungsqualität hervorbringen", ru: "обеспечивать высокое качество образования" },
+  { id: 57, de: "das weltmarktrelevante Patent, -e", ru: "значимый на мировом рынке патент" },
+  { id: 58, de: "die Zahl der Patentanmeldungen verdoppelt sich", ru: "количество заявок на патенты удваивается" },
+  { id: 59, de: "die enge Zusammenarbeit der Wirtschaft mit den großen weltbekannten Forschungseinrichtungen", ru: "тесное сотрудничество экономики с крупными известными во всём мире исследовательскими институтами" },
+  { id: 60, de: "aus neuen Ideen werden weltmarktfähige Produkte", ru: "новые идеи быстро превращаются в конкурентоспособную на мировом рынке продукцию" },
+  { id: 61, de: "über ein dichtes Netz von Autobahnen, Eisenbahnlinien und internationalen Flughäfen verfügen", ru: "располагать развитой сетью автобанов, железнодорожных линий и аэропортов" },
+  { id: 62, de: "schnelle Verbindungen garantieren", ru: "гарантировать быстрое сообщение" },
+  { id: 63, de: "der moderne Rechtsstaat mit transparenten Regelungen", ru: "современное правовое государство с прозрачным правовым регулированием" },
+  { id: 64, de: "den Anteil am Welthandel erhöhen", ru: "повышать долю в мировой торговле" },
+  { id: 65, de: "ausländischen Investoren gegenüber aufgeschlossen sein", ru: "быть открытым для зарубежных / иностранных инвестиций" },
+  { id: 66, de: "das Ausbildungssystem orientiert sich eng an den Bedürfnissen der Wirtschaft", ru: "система образования ориентируется непосредственно на потребности экономики" },
+  { id: 67, de: "hoch im Kurs bei Dativ stehen", ru: "быть уважаемым кем-либо, высоко цениться, пользоваться авторитетом" },
+  { id: 68, de: "Waren / Güter herstellen / produzieren / erzeugen", ru: "производить товары" },
+  { id: 69, de: "die hervorragend ausgebaute Kommunikationsinfrastruktur", ru: "превосходно / отлично развитая структура коммуникаций" },
+  { id: 70, de: "kleine und mittelgroße Firmen", ru: "мелкие и средние фирмы / компании" },
+  { id: 71, de: "flexibel, vielfältig und wettbewerbsfähig sein", ru: "быть гибким, разнообразным и конкурентоспособным" },
+  { id: 72, de: "der Weltmarktführer in dem Bereich", ru: "лидер на мировом рынке в этой отрасли / сфере" },
+  { id: 73, de: "die Rechtssicherheit", ru: "обеспечение правовых гарантий, обеспеченность правового порядка" },
+  { id: 74, de: "mittelständisch geprägt sein", ru: "средние фирмы / компании определяют (структуру экономики)" },
+  { id: 75, de: "weltweit für die höchste Qualität stehen", ru: "отвечать во всём мире за самое высокое качество" },
+  { id: 76, de: "deutsche Produkte mit dem Gütesiegel „Made in Germany“", ru: "продукция из Германии со знаком качества „Made in Germany“" },
+  { id: 77, de: "von dem Gütesiegel „Made in Germany“ profitieren", ru: "извлекать выгоду из знака качества „Made in Germany“" },
+  { id: 78, de: "der Warenexportweltmeister", ru: "мировой лидер по экспорту товаров и услуг" },
+  { id: 79, de: "stark im Kommen sein", ru: "интенсивно / активно развиваться" },
+  { id: 80, de: "umweltfreundliche Energieerzeugung", ru: "добыча экологически чистой электроэнергии" },
+  { id: 81, de: "das weltbekannte Markenzeichen", ru: "известная во всём мире торговая марка / бренд" },
+  { id: 82, de: "die Niederlassung, -en eröffnen (gründen) = sich niederlassen", ru: "открыть филиал" },
 ];
 
 const COLORS = {
-bg: ‘#EFE7D6’,
-paper: ‘#F8F3E6’,
-ink: ‘#1A1612’,
-red: ‘#A8201A’,
-redDark: ‘#7C1813’,
-ochre: ‘#B8893A’,
-muted: ‘#776B5A’,
-line: ‘#D6CCB5’,
-green: ‘#3F5C3B’,
+  bg:      '#EFE7D6',
+  paper:   '#F8F3E6',
+  ink:     '#1A1612',
+  red:     '#A8201A',
+  redDark: '#7C1813',
+  ochre:   '#B8893A',
+  muted:   '#776B5A',
+  line:    '#D6CCB5',
+  green:   '#3F5C3B',
 };
 
 function shuffle(arr) {
-const a = […arr];
-for (let i = a.length - 1; i > 0; i–) {
-const j = Math.floor(Math.random() * (i + 1));
-[a[i], a[j]] = [a[j], a[i]];
-}
-return a;
-}
-
-export default function App() {
-const [progress, setProgress] = useState({});
-const [mode, setMode] = useState(‘cards’);
-const [direction, setDirection] = useState(‘de-ru’);
-const [currentIdx, setCurrentIdx] = useState(0);
-const [flipped, setFlipped] = useState(false);
-const [filter, setFilter] = useState(‘all’);
-const [loaded, setLoaded] = useState(false);
-const [order, setOrder] = useState(() => VOCAB.map(c => c.id));
-const [quizCard, setQuizCard] = useState(null);
-const [quizOptions, setQuizOptions] = useState([]);
-const [quizAnswered, setQuizAnswered] = useState(null);
-const [quizStreak, setQuizStreak] = useState(0);
-
-// Load progress on mount
-useEffect(() => {
-(async () => {
-try {
-const result = await window.storage.get(‘wirtschaft-progress’);
-if (result) setProgress(JSON.parse(result.value));
-} catch (e) {}
-try {
-const settings = await window.storage.get(‘wirtschaft-settings’);
-if (settings) {
-const s = JSON.parse(settings.value);
-if (s.direction) setDirection(s.direction);
-}
-} catch (e) {}
-setLoaded(true);
-})();
-}, []);
-
-// Persist
-useEffect(() => {
-if (!loaded) return;
-window.storage.set(‘wirtschaft-progress’, JSON.stringify(progress)).catch(() => {});
-}, [progress, loaded]);
-
-useEffect(() => {
-if (!loaded) return;
-window.storage.set(‘wirtschaft-settings’, JSON.stringify({ direction })).catch(() => {});
-}, [direction, loaded]);
-
-const stats = useMemo(() => {
-let known = 0, learning = 0, fresh = 0;
-VOCAB.forEach(c => {
-const s = progress[c.id]?.status;
-if (s === ‘known’) known++;
-else if (s === ‘learning’) learning++;
-else fresh++;
-});
-return { known, learning, fresh, total: VOCAB.length };
-}, [progress]);
-
-const filteredIds = useMemo(() => {
-if (filter === ‘unlearned’) {
-return order.filter(id => (progress[id]?.status || ‘new’) !== ‘known’);
-}
-if (filter === ‘difficult’) {
-return order.filter(id => (progress[id]?.wrongCount || 0) >= 2);
-}
-return order;
-}, [filter, order, progress]);
-
-const safeIdx = filteredIds.length === 0 ? 0 : currentIdx % filteredIds.length;
-const currentCard = filteredIds.length === 0
-? VOCAB[0]
-: VOCAB.find(c => c.id === filteredIds[safeIdx]);
-
-const markCard = (cardId, result) => {
-setProgress(p => {
-const cur = p[cardId] || { status: ‘new’, correctCount: 0, wrongCount: 0 };
-let { correctCount, wrongCount } = cur;
-let newStatus = cur.status;
-
-```
-  if (result === 'known') {
-    correctCount++;
-    newStatus = correctCount >= 2 ? 'known' : 'learning';
-  } else if (result === 'hard') {
-    newStatus = 'learning';
-  } else {
-    wrongCount++;
-    correctCount = Math.max(0, correctCount - 1);
-    newStatus = 'learning';
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
-  return { ...p, [cardId]: { status: newStatus, correctCount, wrongCount } };
-});
-```
-
-};
-
-const next = () => {
-setFlipped(false);
-setTimeout(() => {
-setCurrentIdx(i => (i + 1) % Math.max(1, filteredIds.length));
-}, 150);
-};
-
-const prev = () => {
-setFlipped(false);
-setTimeout(() => {
-setCurrentIdx(i => (i - 1 + filteredIds.length) % Math.max(1, filteredIds.length));
-}, 150);
-};
-
-const handleMark = (result) => {
-if (currentCard) markCard(currentCard.id, result);
-next();
-};
-
-const reshuffle = () => {
-setOrder(shuffle(VOCAB.map(c => c.id)));
-setCurrentIdx(0);
-setFlipped(false);
-};
-
-const resetProgress = () => {
-if (confirm(‘Сбросить весь прогресс?’)) {
-setProgress({});
+  return a;
 }
+
+// localStorage-backed storage helper
+const storage = {
+  get(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) {}
+  },
 };
 
-// Build a quiz question
-const buildQuiz = () => {
-// Prefer not-yet-known cards
-const pool = VOCAB.filter(c => (progress[c.id]?.status || ‘new’) !== ‘known’);
-const source = pool.length >= 4 ? pool : VOCAB;
-const card = source[Math.floor(Math.random() * source.length)];
-const distractorPool = VOCAB.filter(c => c.id !== card.id);
-const distractors = shuffle(distractorPool).slice(0, 3);
-const options = shuffle([card, …distractors]);
-setQuizCard(card);
-setQuizOptions(options);
-setQuizAnswered(null);
-};
+function App() {
+  const [progress, setProgress] = useState({});
+  const [mode, setMode] = useState('cards');
+  const [direction, setDirection] = useState('de-ru');
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [loaded, setLoaded] = useState(false);
+  const [order, setOrder] = useState(() => VOCAB.map(c => c.id));
+  const [quizCard, setQuizCard] = useState(null);
+  const [quizOptions, setQuizOptions] = useState([]);
+  const [quizAnswered, setQuizAnswered] = useState(null);
+  const [quizStreak, setQuizStreak] = useState(0);
 
-useEffect(() => {
-if (mode === ‘quiz’ && loaded && !quizCard) buildQuiz();
-}, [mode, loaded, quizCard]);
+  useEffect(() => {
+    try {
+      const p = storage.get('wirtschaft-progress');
+      if (p) setProgress(JSON.parse(p));
+    } catch (e) {}
+    try {
+      const s = storage.get('wirtschaft-settings');
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (parsed.direction) setDirection(parsed.direction);
+      }
+    } catch (e) {}
+    setLoaded(true);
+  }, []);
 
-const handleQuizAnswer = (optionId) => {
-if (quizAnswered !== null) return;
-const correct = optionId === quizCard.id;
-setQuizAnswered({ id: optionId, correct });
-if (correct) {
-markCard(quizCard.id, ‘known’);
-setQuizStreak(s => s + 1);
-} else {
-markCard(quizCard.id, ‘unknown’);
-setQuizStreak(0);
-}
-};
+  useEffect(() => {
+    if (!loaded) return;
+    storage.set('wirtschaft-progress', JSON.stringify(progress));
+  }, [progress, loaded]);
 
-const nextQuiz = () => {
-buildQuiz();
-};
+  useEffect(() => {
+    if (!loaded) return;
+    storage.set('wirtschaft-settings', JSON.stringify({ direction }));
+  }, [direction, loaded]);
 
-const progressPct = (stats.known / stats.total) * 100;
+  const stats = useMemo(() => {
+    let known = 0, learning = 0, fresh = 0;
+    VOCAB.forEach(c => {
+      const s = progress[c.id]?.status;
+      if (s === 'known') known++;
+      else if (s === 'learning') learning++;
+      else fresh++;
+    });
+    return { known, learning, fresh, total: VOCAB.length };
+  }, [progress]);
 
-return (
-<div style={{
-minHeight: ‘100vh’,
-background: COLORS.bg,
-color: COLORS.ink,
-fontFamily: “‘Geist’, system-ui, sans-serif”,
-paddingBottom: ‘24px’,
-}}>
-<style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap'); * { box-sizing: border-box; } body { margin: 0; } .display { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; } .mono { font-family: 'JetBrains Mono', monospace; } .card-flip-container { perspective: 1500px; } .card-flip { transform-style: preserve-3d; transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1); position: relative; } .card-flip.flipped { transform: rotateY(180deg); } .card-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; position: absolute; inset: 0; } .card-back { transform: rotateY(180deg); } @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } } .fade-in { animation: fadeIn 0.35s ease-out; } @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } } .shake { animation: shake 0.35s ease-in-out; } button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; } button:active { transform: scale(0.97); } .tab-btn { transition: all 0.2s ease; } .grain { background-image: radial-gradient(circle at 1px 1px, rgba(26,22,18,0.04) 1px, transparent 0); background-size: 4px 4px; }`}</style>
+  const filteredIds = useMemo(() => {
+    if (filter === 'unlearned') {
+      return order.filter(id => (progress[id]?.status || 'new') !== 'known');
+    }
+    if (filter === 'difficult') {
+      return order.filter(id => (progress[id]?.wrongCount || 0) >= 2);
+    }
+    return order;
+  }, [filter, order, progress]);
 
-```
-  {/* Header */}
-  <header style={{
-    padding: '20px 20px 12px',
-    borderBottom: `1px solid ${COLORS.line}`,
-    position: 'sticky',
-    top: 0,
-    background: COLORS.bg,
-    zIndex: 10,
-  }}>
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '4px' }}>
-      <h1 className="display" style={{
-        margin: 0,
-        fontSize: '32px',
-        fontWeight: 500,
-        letterSpacing: '-0.02em',
-        fontStyle: 'italic',
+  const safeIdx = filteredIds.length === 0 ? 0 : currentIdx % filteredIds.length;
+  const currentCard = filteredIds.length === 0
+    ? VOCAB[0]
+    : VOCAB.find(c => c.id === filteredIds[safeIdx]);
+
+  const markCard = (cardId, result) => {
+    setProgress(p => {
+      const cur = p[cardId] || { status: 'new', correctCount: 0, wrongCount: 0 };
+      let { correctCount, wrongCount } = cur;
+      let newStatus = cur.status;
+      if (result === 'known') {
+        correctCount++;
+        newStatus = correctCount >= 2 ? 'known' : 'learning';
+      } else if (result === 'hard') {
+        newStatus = 'learning';
+      } else {
+        wrongCount++;
+        correctCount = Math.max(0, correctCount - 1);
+        newStatus = 'learning';
+      }
+      return { ...p, [cardId]: { status: newStatus, correctCount, wrongCount } };
+    });
+  };
+
+  const next = () => {
+    setFlipped(false);
+    setTimeout(() => {
+      setCurrentIdx(i => (i + 1) % Math.max(1, filteredIds.length));
+    }, 150);
+  };
+
+  const prev = () => {
+    setFlipped(false);
+    setTimeout(() => {
+      setCurrentIdx(i => (i - 1 + filteredIds.length) % Math.max(1, filteredIds.length));
+    }, 150);
+  };
+
+  const handleMark = (result) => {
+    if (currentCard) markCard(currentCard.id, result);
+    next();
+  };
+
+  const reshuffle = () => {
+    setOrder(shuffle(VOCAB.map(c => c.id)));
+    setCurrentIdx(0);
+    setFlipped(false);
+  };
+
+  const resetProgress = () => {
+    if (confirm('Сбросить весь прогресс?')) {
+      setProgress({});
+    }
+  };
+
+  const buildQuiz = () => {
+    const pool = VOCAB.filter(c => (progress[c.id]?.status || 'new') !== 'known');
+    const source = pool.length >= 4 ? pool : VOCAB;
+    const card = source[Math.floor(Math.random() * source.length)];
+    const distractorPool = VOCAB.filter(c => c.id !== card.id);
+    const distractors = shuffle(distractorPool).slice(0, 3);
+    const options = shuffle([card, ...distractors]);
+    setQuizCard(card);
+    setQuizOptions(options);
+    setQuizAnswered(null);
+  };
+
+  useEffect(() => {
+    if (mode === 'quiz' && loaded && !quizCard) buildQuiz();
+  }, [mode, loaded, quizCard]);
+
+  const handleQuizAnswer = (optionId) => {
+    if (quizAnswered !== null) return;
+    const correct = optionId === quizCard.id;
+    setQuizAnswered({ id: optionId, correct });
+    if (correct) {
+      markCard(quizCard.id, 'known');
+      setQuizStreak(s => s + 1);
+    } else {
+      markCard(quizCard.id, 'unknown');
+      setQuizStreak(0);
+    }
+  };
+
+  const nextQuiz = () => buildQuiz();
+
+  const progressPct = (stats.known / stats.total) * 100;
+
+  return (
+    <div className="app-shell" style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.ink, paddingBottom: '24px' }}>
+      <header style={{
+        padding: '20px 20px 12px',
+        borderBottom: `1px solid ${COLORS.line}`,
+        position: 'sticky',
+        top: 0,
+        background: COLORS.bg,
+        zIndex: 10,
       }}>
-        Wirtschaft
-      </h1>
-      <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.05em' }}>
-        {stats.known}/{stats.total}
-      </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <h1 className="display" style={{
+            margin: 0,
+            fontSize: '32px',
+            fontWeight: 500,
+            letterSpacing: '-0.02em',
+            fontStyle: 'italic',
+          }}>
+            Wirtschaft
+          </h1>
+          <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.05em' }}>
+            {stats.known}/{stats.total}
+          </div>
+        </div>
+        <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '14px', letterSpacing: '0.02em' }}>
+          Словарь по теме «Экономика»
+        </div>
+
+        <div style={{ height: '3px', background: COLORS.line, borderRadius: '2px', overflow: 'hidden', marginBottom: '16px' }}>
+          <div style={{ height: '100%', width: `${progressPct}%`, background: COLORS.red, transition: 'width 0.5s ease' }} />
+        </div>
+
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {[
+            { id: 'cards', label: 'Карточки', icon: Layers },
+            { id: 'quiz',  label: 'Тест',     icon: Brain },
+            { id: 'stats', label: 'Прогресс', icon: BarChart3 },
+          ].map(t => {
+            const Ic = t.icon;
+            const active = mode === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setMode(t.id)}
+                className="tab-btn"
+                style={{
+                  flex: 1,
+                  padding: '10px 8px',
+                  background: active ? COLORS.ink : 'transparent',
+                  color: active ? COLORS.paper : COLORS.ink,
+                  border: `1px solid ${active ? COLORS.ink : COLORS.line}`,
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                <Ic size={14} strokeWidth={2} />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </header>
+
+      <main style={{ padding: '20px' }}>
+        {mode === 'cards' && (
+          <CardsMode
+            currentCard={currentCard}
+            flipped={flipped}
+            setFlipped={setFlipped}
+            direction={direction}
+            setDirection={setDirection}
+            currentIdx={safeIdx}
+            total={filteredIds.length}
+            next={next}
+            prev={prev}
+            handleMark={handleMark}
+            progress={progress}
+            filter={filter}
+            setFilter={setFilter}
+            reshuffle={reshuffle}
+            stats={stats}
+          />
+        )}
+        {mode === 'quiz' && quizCard && (
+          <QuizMode
+            quizCard={quizCard}
+            quizOptions={quizOptions}
+            direction={direction}
+            setDirection={setDirection}
+            quizAnswered={quizAnswered}
+            handleQuizAnswer={handleQuizAnswer}
+            nextQuiz={nextQuiz}
+            quizStreak={quizStreak}
+          />
+        )}
+        {mode === 'stats' && (
+          <StatsMode
+            stats={stats}
+            progress={progress}
+            resetProgress={resetProgress}
+            setMode={setMode}
+            setFilter={setFilter}
+          />
+        )}
+      </main>
     </div>
-    <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '14px', letterSpacing: '0.02em' }}>
-      Словарь по теме «Экономика»
-    </div>
-
-    {/* Progress bar */}
-    <div style={{
-      height: '3px',
-      background: COLORS.line,
-      borderRadius: '2px',
-      overflow: 'hidden',
-      marginBottom: '16px',
-    }}>
-      <div style={{
-        height: '100%',
-        width: `${progressPct}%`,
-        background: COLORS.red,
-        transition: 'width 0.5s ease',
-      }} />
-    </div>
-
-    {/* Mode tabs */}
-    <div style={{ display: 'flex', gap: '4px' }}>
-      {[
-        { id: 'cards', label: 'Карточки', icon: Layers },
-        { id: 'quiz', label: 'Тест', icon: Brain },
-        { id: 'stats', label: 'Прогресс', icon: BarChart3 },
-      ].map(t => {
-        const Icon = t.icon;
-        const active = mode === t.id;
-        return (
-          <button
-            key={t.id}
-            onClick={() => setMode(t.id)}
-            className="tab-btn"
-            style={{
-              flex: 1,
-              padding: '10px 8px',
-              background: active ? COLORS.ink : 'transparent',
-              color: active ? COLORS.paper : COLORS.ink,
-              border: `1px solid ${active ? COLORS.ink : COLORS.line}`,
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              letterSpacing: '0.01em',
-            }}
-          >
-            <Icon size={14} strokeWidth={2} />
-            {t.label}
-          </button>
-        );
-      })}
-    </div>
-  </header>
-
-  <main style={{ padding: '20px' }}>
-    {mode === 'cards' && (
-      <CardsMode
-        currentCard={currentCard}
-        flipped={flipped}
-        setFlipped={setFlipped}
-        direction={direction}
-        setDirection={setDirection}
-        currentIdx={safeIdx}
-        total={filteredIds.length}
-        next={next}
-        prev={prev}
-        handleMark={handleMark}
-        progress={progress}
-        filter={filter}
-        setFilter={setFilter}
-        reshuffle={reshuffle}
-        stats={stats}
-      />
-    )}
-
-    {mode === 'quiz' && quizCard && (
-      <QuizMode
-        quizCard={quizCard}
-        quizOptions={quizOptions}
-        direction={direction}
-        setDirection={setDirection}
-        quizAnswered={quizAnswered}
-        handleQuizAnswer={handleQuizAnswer}
-        nextQuiz={nextQuiz}
-        quizStreak={quizStreak}
-      />
-    )}
-
-    {mode === 'stats' && (
-      <StatsMode stats={stats} progress={progress} resetProgress={resetProgress} setMode={setMode} setFilter={setFilter} />
-    )}
-  </main>
-</div>
-```
-
-);
+  );
 }
 
 function CardsMode({ currentCard, flipped, setFlipped, direction, setDirection, currentIdx, total, next, prev, handleMark, progress, filter, setFilter, reshuffle, stats }) {
-if (!currentCard) return null;
-const cardProgress = progress[currentCard.id];
-const status = cardProgress?.status || ‘new’;
-const statusLabel = { new: ‘Новое’, learning: ‘Изучается’, known: ‘Выучено’ }[status];
-const statusColor = { new: COLORS.muted, learning: COLORS.ochre, known: COLORS.green }[status];
+  if (!currentCard) return null;
+  const cardProgress = progress[currentCard.id];
+  const status = cardProgress?.status || 'new';
+  const statusLabel = { new: 'Новое', learning: 'Изучается', known: 'Выучено' }[status];
+  const statusColor = { new: COLORS.muted, learning: COLORS.ochre, known: COLORS.green }[status];
 
-const front = direction === ‘de-ru’ ? currentCard.de : currentCard.ru;
-const back = direction === ‘de-ru’ ? currentCard.ru : currentCard.de;
-const frontLang = direction === ‘de-ru’ ? ‘DE’ : ‘RU’;
-const backLang = direction === ‘de-ru’ ? ‘RU’ : ‘DE’;
+  const front = direction === 'de-ru' ? currentCard.de : currentCard.ru;
+  const back  = direction === 'de-ru' ? currentCard.ru : currentCard.de;
+  const frontLang = direction === 'de-ru' ? 'DE' : 'RU';
+  const backLang  = direction === 'de-ru' ? 'RU' : 'DE';
 
-return (
-<div className="fade-in">
-{/* Controls row */}
-<div style={{ display: ‘flex’, justifyContent: ‘space-between’, alignItems: ‘center’, marginBottom: ‘14px’ }}>
-<div className=“mono” style={{ fontSize: ‘11px’, color: COLORS.muted, letterSpacing: ‘0.08em’ }}>
-{String(currentIdx + 1).padStart(2, ‘0’)} / {String(total).padStart(2, ‘0’)}
-</div>
-<div style={{ display: ‘flex’, gap: ‘6px’ }}>
-<button
-onClick={() => setDirection(d => d === ‘de-ru’ ? ‘ru-de’ : ‘de-ru’)}
-style={{
-background: ‘transparent’,
-border: `1px solid ${COLORS.line}`,
-borderRadius: ‘6px’,
-padding: ‘5px 10px’,
-fontSize: ‘11px’,
-color: COLORS.ink,
-display: ‘flex’,
-alignItems: ‘center’,
-gap: ‘4px’,
-fontFamily: “‘JetBrains Mono’, monospace”,
-letterSpacing: ‘0.05em’,
-}}
->
-{frontLang}<ArrowLeftRight size={10} />{backLang}
-</button>
-<button
-onClick={reshuffle}
-style={{
-background: ‘transparent’,
-border: `1px solid ${COLORS.line}`,
-borderRadius: ‘6px’,
-padding: ‘5px 10px’,
-fontSize: ‘11px’,
-color: COLORS.ink,
-display: ‘flex’,
-alignItems: ‘center’,
-}}
->
-<Shuffle size={12} />
-</button>
-</div>
-</div>
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+        <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.08em' }}>
+          {String(currentIdx + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            onClick={() => setDirection(d => d === 'de-ru' ? 'ru-de' : 'de-ru')}
+            style={{
+              background: 'transparent',
+              border: `1px solid ${COLORS.line}`,
+              borderRadius: '6px',
+              padding: '5px 10px',
+              fontSize: '11px',
+              color: COLORS.ink,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontFamily: "'JetBrains Mono', monospace",
+              letterSpacing: '0.05em',
+            }}
+          >
+            {frontLang}<ArrowLeftRight size={10} />{backLang}
+          </button>
+          <button
+            onClick={reshuffle}
+            style={{
+              background: 'transparent',
+              border: `1px solid ${COLORS.line}`,
+              borderRadius: '6px',
+              padding: '5px 10px',
+              fontSize: '11px',
+              color: COLORS.ink,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Shuffle size={12} />
+          </button>
+        </div>
+      </div>
 
-```
-  {/* Filter chips */}
-  <div style={{ display: 'flex', gap: '6px', marginBottom: '18px', overflowX: 'auto', paddingBottom: '2px' }}>
-    {[
-      { id: 'all', label: `Все · ${stats.total}` },
-      { id: 'unlearned', label: `Не выучено · ${stats.fresh + stats.learning}` },
-      { id: 'difficult', label: 'Сложные' },
-    ].map(f => (
-      <button
-        key={f.id}
-        onClick={() => setFilter(f.id)}
-        style={{
-          padding: '4px 10px',
-          fontSize: '11px',
-          borderRadius: '12px',
-          border: `1px solid ${filter === f.id ? COLORS.ink : COLORS.line}`,
-          background: filter === f.id ? COLORS.ink : 'transparent',
-          color: filter === f.id ? COLORS.paper : COLORS.ink,
-          whiteSpace: 'nowrap',
-          letterSpacing: '0.02em',
-        }}
-      >
-        {f.label}
-      </button>
-    ))}
-  </div>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '18px', overflowX: 'auto', paddingBottom: '2px' }}>
+        {[
+          { id: 'all',       label: `Все · ${stats.total}` },
+          { id: 'unlearned', label: `Не выучено · ${stats.fresh + stats.learning}` },
+          { id: 'difficult', label: 'Сложные' },
+        ].map(f => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            style={{
+              padding: '4px 10px',
+              fontSize: '11px',
+              borderRadius: '12px',
+              border: `1px solid ${filter === f.id ? COLORS.ink : COLORS.line}`,
+              background: filter === f.id ? COLORS.ink : 'transparent',
+              color: filter === f.id ? COLORS.paper : COLORS.ink,
+              whiteSpace: 'nowrap',
+              letterSpacing: '0.02em',
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
-  {/* Card */}
-  <div
-    className="card-flip-container"
-    style={{ height: '340px', marginBottom: '20px' }}
-  >
-    <div
-      className={`card-flip ${flipped ? 'flipped' : ''}`}
-      style={{ width: '100%', height: '100%' }}
-      onClick={() => setFlipped(f => !f)}
-    >
-      {/* Front */}
-      <div
-        className="card-face grain"
-        style={{
-          background: COLORS.paper,
-          border: `1px solid ${COLORS.line}`,
-          borderRadius: '16px',
-          padding: '24px 22px',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 1px 0 rgba(26,22,18,0.04), 0 12px 32px -16px rgba(26,22,18,0.18)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'auto' }}>
-          <div className="mono" style={{ fontSize: '10px', color: COLORS.muted, letterSpacing: '0.1em' }}>
-            № {currentCard.id} · {frontLang}
+      <div className="card-flip-container" style={{ height: '340px', marginBottom: '20px' }}>
+        <div
+          className={`card-flip ${flipped ? 'flipped' : ''}`}
+          style={{ width: '100%', height: '100%' }}
+          onClick={() => setFlipped(f => !f)}
+        >
+          <div
+            className="card-face grain"
+            style={{
+              background: COLORS.paper,
+              border: `1px solid ${COLORS.line}`,
+              borderRadius: '16px',
+              padding: '24px 22px',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 1px 0 rgba(26,22,18,0.04), 0 12px 32px -16px rgba(26,22,18,0.18)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'auto' }}>
+              <div className="mono" style={{ fontSize: '10px', color: COLORS.muted, letterSpacing: '0.1em' }}>
+                № {currentCard.id} · {frontLang}
+              </div>
+              <div style={{
+                fontSize: '10px',
+                color: statusColor,
+                fontFamily: "'JetBrains Mono', monospace",
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}>
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: statusColor, display: 'inline-block' }} />
+                {statusLabel}
+              </div>
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px 0' }}>
+              <div className="display" style={{
+                fontSize: front.length > 80 ? '20px' : front.length > 40 ? '24px' : '28px',
+                lineHeight: 1.25,
+                textAlign: 'center',
+                letterSpacing: '-0.01em',
+                fontWeight: 400,
+                fontStyle: direction === 'de-ru' ? 'normal' : 'italic',
+              }}>
+                {front}
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', fontSize: '11px', color: COLORS.muted, letterSpacing: '0.05em', marginTop: 'auto' }}>
+              нажмите, чтобы перевернуть
+            </div>
           </div>
-          <div style={{
-            fontSize: '10px',
-            color: statusColor,
-            fontFamily: "'JetBrains Mono', monospace",
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
+
+          <div
+            className="card-face card-back grain"
+            style={{
+              background: COLORS.ink,
+              color: COLORS.paper,
+              border: `1px solid ${COLORS.ink}`,
+              borderRadius: '16px',
+              padding: '24px 22px',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 1px 0 rgba(26,22,18,0.04), 0 12px 32px -16px rgba(26,22,18,0.35)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div className="mono" style={{ fontSize: '10px', color: 'rgba(248,243,230,0.5)', letterSpacing: '0.1em' }}>
+                № {currentCard.id} · {backLang}
+              </div>
+              <div className="mono" style={{ fontSize: '10px', color: COLORS.ochre, letterSpacing: '0.1em' }}>
+                ПЕРЕВОД
+              </div>
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px 0' }}>
+              <div className="display" style={{
+                fontSize: back.length > 80 ? '20px' : back.length > 40 ? '23px' : '26px',
+                lineHeight: 1.3,
+                textAlign: 'center',
+                letterSpacing: '-0.005em',
+                fontWeight: 400,
+                fontStyle: direction === 'de-ru' ? 'italic' : 'normal',
+              }}>
+                {back}
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(248,243,230,0.5)', letterSpacing: '0.05em' }}>
+              оцените, насколько знаете ↓
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gap: '8px',
+        marginBottom: '14px',
+        opacity: flipped ? 1 : 0.35,
+        pointerEvents: flipped ? 'auto' : 'none',
+        transition: 'opacity 0.3s ease',
+      }}>
+        <ActionBtn onClick={() => handleMark('unknown')} color={COLORS.red}   icon={<X size={16} strokeWidth={2.5} />}        label="Не знаю" />
+        <ActionBtn onClick={() => handleMark('hard')}    color={COLORS.ochre} icon={<Sparkles size={15} strokeWidth={2.2} />} label="Сложно"  />
+        <ActionBtn onClick={() => handleMark('known')}   color={COLORS.green} icon={<Check size={16} strokeWidth={2.5} />}    label="Знаю"    />
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button
+          onClick={prev}
+          style={{
+            flex: 1,
+            padding: '12px',
+            background: 'transparent',
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: '10px',
+            color: COLORS.ink,
             display: 'flex',
             alignItems: 'center',
-            gap: '5px',
-          }}>
-            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: statusColor, display: 'inline-block' }} />
-            {statusLabel}
-          </div>
-        </div>
-
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px 0' }}>
-          <div className="display" style={{
-            fontSize: front.length > 80 ? '20px' : front.length > 40 ? '24px' : '28px',
-            lineHeight: 1.25,
-            textAlign: 'center',
-            letterSpacing: '-0.01em',
-            fontWeight: 400,
-            fontStyle: direction === 'de-ru' ? 'normal' : 'italic',
-          }}>
-            {front}
-          </div>
-        </div>
-
-        <div style={{ textAlign: 'center', fontSize: '11px', color: COLORS.muted, letterSpacing: '0.05em', marginTop: 'auto' }}>
-          нажмите, чтобы перевернуть
-        </div>
-      </div>
-
-      {/* Back */}
-      <div
-        className="card-face card-back grain"
-        style={{
-          background: COLORS.ink,
-          color: COLORS.paper,
-          border: `1px solid ${COLORS.ink}`,
-          borderRadius: '16px',
-          padding: '24px 22px',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 1px 0 rgba(26,22,18,0.04), 0 12px 32px -16px rgba(26,22,18,0.35)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div className="mono" style={{ fontSize: '10px', color: 'rgba(248,243,230,0.5)', letterSpacing: '0.1em' }}>
-            № {currentCard.id} · {backLang}
-          </div>
-          <div className="mono" style={{ fontSize: '10px', color: COLORS.ochre, letterSpacing: '0.1em' }}>
-            ПЕРЕВОД
-          </div>
-        </div>
-
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px 0' }}>
-          <div className="display" style={{
-            fontSize: back.length > 80 ? '20px' : back.length > 40 ? '23px' : '26px',
-            lineHeight: 1.3,
-            textAlign: 'center',
-            letterSpacing: '-0.005em',
-            fontWeight: 400,
-            fontStyle: direction === 'de-ru' ? 'italic' : 'normal',
-          }}>
-            {back}
-          </div>
-        </div>
-
-        <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(248,243,230,0.5)', letterSpacing: '0.05em' }}>
-          оцените, насколько знаете ↓
-        </div>
+            justifyContent: 'center',
+            gap: '6px',
+            fontSize: '13px',
+          }}
+        >
+          <ChevronLeft size={16} /> Назад
+        </button>
+        <button
+          onClick={next}
+          style={{
+            flex: 1,
+            padding: '12px',
+            background: 'transparent',
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: '10px',
+            color: COLORS.ink,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            fontSize: '13px',
+          }}
+        >
+          Дальше <ChevronRight size={16} />
+        </button>
       </div>
     </div>
-  </div>
-
-  {/* Action buttons - shown after flip */}
-  <div style={{
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr 1fr',
-    gap: '8px',
-    marginBottom: '14px',
-    opacity: flipped ? 1 : 0.35,
-    pointerEvents: flipped ? 'auto' : 'none',
-    transition: 'opacity 0.3s ease',
-  }}>
-    <ActionBtn
-      onClick={() => handleMark('unknown')}
-      color={COLORS.red}
-      icon={<X size={16} strokeWidth={2.5} />}
-      label="Не знаю"
-    />
-    <ActionBtn
-      onClick={() => handleMark('hard')}
-      color={COLORS.ochre}
-      icon={<Sparkles size={15} strokeWidth={2.2} />}
-      label="Сложно"
-    />
-    <ActionBtn
-      onClick={() => handleMark('known')}
-      color={COLORS.green}
-      icon={<Check size={16} strokeWidth={2.5} />}
-      label="Знаю"
-    />
-  </div>
-
-  {/* Nav */}
-  <div style={{ display: 'flex', gap: '8px' }}>
-    <button
-      onClick={prev}
-      style={{
-        flex: 1,
-        padding: '12px',
-        background: 'transparent',
-        border: `1px solid ${COLORS.line}`,
-        borderRadius: '10px',
-        color: COLORS.ink,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '6px',
-        fontSize: '13px',
-      }}
-    >
-      <ChevronLeft size={16} /> Назад
-    </button>
-    <button
-      onClick={next}
-      style={{
-        flex: 1,
-        padding: '12px',
-        background: 'transparent',
-        border: `1px solid ${COLORS.line}`,
-        borderRadius: '10px',
-        color: COLORS.ink,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '6px',
-        fontSize: '13px',
-      }}
-    >
-      Дальше <ChevronRight size={16} />
-    </button>
-  </div>
-</div>
-```
-
-);
+  );
 }
 
 function ActionBtn({ onClick, color, icon, label }) {
-return (
-<button
-onClick={onClick}
-style={{
-padding: ‘13px 6px’,
-background: COLORS.paper,
-border: `1.5px solid ${color}`,
-borderRadius: ‘10px’,
-color: color,
-display: ‘flex’,
-flexDirection: ‘column’,
-alignItems: ‘center’,
-gap: ‘5px’,
-fontSize: ‘11px’,
-fontWeight: 600,
-letterSpacing: ‘0.02em’,
-}}
->
-{icon}
-{label}
-</button>
-);
-}
-
-function QuizMode({ quizCard, quizOptions, direction, setDirection, quizAnswered, handleQuizAnswer, nextQuiz, quizStreak }) {
-const prompt = direction === ‘de-ru’ ? quizCard.de : quizCard.ru;
-const promptLang = direction === ‘de-ru’ ? ‘DE’ : ‘RU’;
-const optionLang = direction === ‘de-ru’ ? ‘RU’ : ‘DE’;
-
-return (
-<div className="fade-in">
-{/* Top row */}
-<div style={{ display: ‘flex’, justifyContent: ‘space-between’, alignItems: ‘center’, marginBottom: ‘16px’ }}>
-<div className=“mono” style={{ fontSize: ‘11px’, color: COLORS.muted, letterSpacing: ‘0.08em’ }}>
-СЕРИЯ: <span style={{ color: quizStreak > 0 ? COLORS.green : COLORS.muted }}>{quizStreak}</span>
-</div>
-<button
-onClick={() => setDirection(d => d === ‘de-ru’ ? ‘ru-de’ : ‘de-ru’)}
-style={{
-background: ‘transparent’,
-border: `1px solid ${COLORS.line}`,
-borderRadius: ‘6px’,
-padding: ‘5px 10px’,
-fontSize: ‘11px’,
-color: COLORS.ink,
-display: ‘flex’,
-alignItems: ‘center’,
-gap: ‘4px’,
-fontFamily: “‘JetBrains Mono’, monospace”,
-letterSpacing: ‘0.05em’,
-}}
->
-{promptLang}<ArrowLeftRight size={10} />{optionLang}
-</button>
-</div>
-
-```
-  {/* Prompt */}
-  <div
-    className="grain"
-    style={{
-      background: COLORS.paper,
-      border: `1px solid ${COLORS.line}`,
-      borderRadius: '16px',
-      padding: '24px 20px',
-      marginBottom: '18px',
-      boxShadow: '0 1px 0 rgba(26,22,18,0.04), 0 12px 32px -16px rgba(26,22,18,0.18)',
-    }}
-  >
-    <div className="mono" style={{ fontSize: '10px', color: COLORS.muted, letterSpacing: '0.1em', marginBottom: '14px', textAlign: 'center' }}>
-      ВЫБЕРИТЕ ПРАВИЛЬНЫЙ ПЕРЕВОД · {promptLang}
-    </div>
-    <div className="display" style={{
-      fontSize: prompt.length > 70 ? '20px' : '24px',
-      lineHeight: 1.3,
-      textAlign: 'center',
-      fontStyle: direction === 'de-ru' ? 'normal' : 'italic',
-      letterSpacing: '-0.01em',
-    }}>
-      {prompt}
-    </div>
-  </div>
-
-  {/* Options */}
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-    {quizOptions.map((opt, i) => {
-      const text = direction === 'de-ru' ? opt.ru : opt.de;
-      const isAnswered = quizAnswered !== null;
-      const isCorrect = opt.id === quizCard.id;
-      const wasPicked = quizAnswered?.id === opt.id;
-
-      let style = {
-        background: COLORS.paper,
-        borderColor: COLORS.line,
-        color: COLORS.ink,
-      };
-      if (isAnswered) {
-        if (isCorrect) {
-          style = { background: COLORS.green, borderColor: COLORS.green, color: COLORS.paper };
-        } else if (wasPicked) {
-          style = { background: COLORS.red, borderColor: COLORS.red, color: COLORS.paper };
-        } else {
-          style = { background: COLORS.paper, borderColor: COLORS.line, color: COLORS.muted, opacity: 0.55 };
-        }
-      }
-
-      return (
-        <button
-          key={opt.id}
-          onClick={() => handleQuizAnswer(opt.id)}
-          disabled={isAnswered}
-          className={isAnswered && wasPicked && !isCorrect ? 'shake' : ''}
-          style={{
-            padding: '14px 14px',
-            border: `1.5px solid ${style.borderColor}`,
-            background: style.background,
-            color: style.color,
-            opacity: style.opacity ?? 1,
-            borderRadius: '12px',
-            textAlign: 'left',
-            fontSize: '14px',
-            lineHeight: 1.35,
-            display: 'flex',
-            gap: '10px',
-            alignItems: 'flex-start',
-            fontStyle: direction === 'de-ru' ? 'normal' : 'italic',
-            fontFamily: direction === 'de-ru' ? "'Geist', sans-serif" : "'Fraunces', Georgia, serif",
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <span className="mono" style={{
-            fontSize: '11px',
-            opacity: 0.6,
-            marginTop: '2px',
-            minWidth: '14px',
-            fontStyle: 'normal',
-            fontFamily: "'JetBrains Mono', monospace",
-          }}>
-            {String.fromCharCode(65 + i)}
-          </span>
-          <span style={{ flex: 1 }}>{text}</span>
-          {isAnswered && isCorrect && <Check size={16} style={{ marginTop: '2px' }} />}
-          {isAnswered && wasPicked && !isCorrect && <X size={16} style={{ marginTop: '2px' }} />}
-        </button>
-      );
-    })}
-  </div>
-
-  {/* Next button after answer */}
-  {quizAnswered !== null && (
+  return (
     <button
-      onClick={nextQuiz}
-      className="fade-in"
+      onClick={onClick}
       style={{
-        width: '100%',
-        padding: '14px',
-        background: COLORS.ink,
-        color: COLORS.paper,
-        border: 'none',
-        borderRadius: '12px',
-        fontSize: '14px',
-        fontWeight: 500,
+        padding: '13px 6px',
+        background: COLORS.paper,
+        border: `1.5px solid ${color}`,
+        borderRadius: '10px',
+        color: color,
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
+        gap: '5px',
+        fontSize: '11px',
+        fontWeight: 600,
         letterSpacing: '0.02em',
       }}
     >
-      Следующее <ChevronRight size={16} />
+      {icon}
+      {label}
     </button>
-  )}
-</div>
-```
+  );
+}
 
-);
+function QuizMode({ quizCard, quizOptions, direction, setDirection, quizAnswered, handleQuizAnswer, nextQuiz, quizStreak }) {
+  const prompt = direction === 'de-ru' ? quizCard.de : quizCard.ru;
+  const promptLang = direction === 'de-ru' ? 'DE' : 'RU';
+  const optionLang = direction === 'de-ru' ? 'RU' : 'DE';
+
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.08em' }}>
+          СЕРИЯ: <span style={{ color: quizStreak > 0 ? COLORS.green : COLORS.muted }}>{quizStreak}</span>
+        </div>
+        <button
+          onClick={() => setDirection(d => d === 'de-ru' ? 'ru-de' : 'de-ru')}
+          style={{
+            background: 'transparent',
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: '6px',
+            padding: '5px 10px',
+            fontSize: '11px',
+            color: COLORS.ink,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontFamily: "'JetBrains Mono', monospace",
+            letterSpacing: '0.05em',
+          }}
+        >
+          {promptLang}<ArrowLeftRight size={10} />{optionLang}
+        </button>
+      </div>
+
+      <div className="grain" style={{
+        background: COLORS.paper,
+        border: `1px solid ${COLORS.line}`,
+        borderRadius: '16px',
+        padding: '24px 20px',
+        marginBottom: '18px',
+        boxShadow: '0 1px 0 rgba(26,22,18,0.04), 0 12px 32px -16px rgba(26,22,18,0.18)',
+      }}>
+        <div className="mono" style={{ fontSize: '10px', color: COLORS.muted, letterSpacing: '0.1em', marginBottom: '14px', textAlign: 'center' }}>
+          ВЫБЕРИТЕ ПРАВИЛЬНЫЙ ПЕРЕВОД · {promptLang}
+        </div>
+        <div className="display" style={{
+          fontSize: prompt.length > 70 ? '20px' : '24px',
+          lineHeight: 1.3,
+          textAlign: 'center',
+          fontStyle: direction === 'de-ru' ? 'normal' : 'italic',
+          letterSpacing: '-0.01em',
+        }}>
+          {prompt}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+        {quizOptions.map((opt, i) => {
+          const text = direction === 'de-ru' ? opt.ru : opt.de;
+          const isAnswered = quizAnswered !== null;
+          const isCorrect = opt.id === quizCard.id;
+          const wasPicked = quizAnswered?.id === opt.id;
+
+          let style = {
+            background: COLORS.paper,
+            borderColor: COLORS.line,
+            color: COLORS.ink,
+          };
+          if (isAnswered) {
+            if (isCorrect) {
+              style = { background: COLORS.green, borderColor: COLORS.green, color: COLORS.paper };
+            } else if (wasPicked) {
+              style = { background: COLORS.red, borderColor: COLORS.red, color: COLORS.paper };
+            } else {
+              style = { background: COLORS.paper, borderColor: COLORS.line, color: COLORS.muted, opacity: 0.55 };
+            }
+          }
+
+          return (
+            <button
+              key={opt.id}
+              onClick={() => handleQuizAnswer(opt.id)}
+              disabled={isAnswered}
+              className={isAnswered && wasPicked && !isCorrect ? 'shake' : ''}
+              style={{
+                padding: '14px 14px',
+                border: `1.5px solid ${style.borderColor}`,
+                background: style.background,
+                color: style.color,
+                opacity: style.opacity ?? 1,
+                borderRadius: '12px',
+                textAlign: 'left',
+                fontSize: '14px',
+                lineHeight: 1.35,
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'flex-start',
+                fontStyle: direction === 'de-ru' ? 'normal' : 'italic',
+                fontFamily: direction === 'de-ru' ? "'Geist', sans-serif" : "'Fraunces', Georgia, serif",
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span className="mono" style={{
+                fontSize: '11px',
+                opacity: 0.6,
+                marginTop: '2px',
+                minWidth: '14px',
+                fontStyle: 'normal',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>
+                {String.fromCharCode(65 + i)}
+              </span>
+              <span style={{ flex: 1 }}>{text}</span>
+              {isAnswered && isCorrect && <Check size={16} style={{ marginTop: '2px' }} />}
+              {isAnswered && wasPicked && !isCorrect && <X size={16} style={{ marginTop: '2px' }} />}
+            </button>
+          );
+        })}
+      </div>
+
+      {quizAnswered !== null && (
+        <button
+          onClick={nextQuiz}
+          className="fade-in"
+          style={{
+            width: '100%',
+            padding: '14px',
+            background: COLORS.ink,
+            color: COLORS.paper,
+            border: 'none',
+            borderRadius: '12px',
+            fontSize: '14px',
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            letterSpacing: '0.02em',
+          }}
+        >
+          Следующее <ChevronRight size={16} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 function StatsMode({ stats, progress, resetProgress, setMode, setFilter }) {
-const learningCards = VOCAB.filter(c => progress[c.id]?.status === ‘learning’);
-const difficultCards = VOCAB.filter(c => (progress[c.id]?.wrongCount || 0) >= 2);
+  const difficultCards = VOCAB.filter(c => (progress[c.id]?.wrongCount || 0) >= 2);
 
-return (
-<div className="fade-in">
-{/* Big numbers */}
-<div style={{ marginBottom: ‘24px’ }}>
-<div className=“mono” style={{ fontSize: ‘11px’, color: COLORS.muted, letterSpacing: ‘0.1em’, marginBottom: ‘8px’ }}>
-ОБЩИЙ ПРОГРЕСС
-</div>
-<div style={{ display: ‘flex’, alignItems: ‘baseline’, gap: ‘8px’, marginBottom: ‘4px’ }}>
-<div className=“display” style={{ fontSize: ‘64px’, lineHeight: 1, fontWeight: 400, letterSpacing: ‘-0.03em’ }}>
-{stats.known}
-</div>
-<div className=“display” style={{ fontSize: ‘24px’, color: COLORS.muted, fontStyle: ‘italic’ }}>
-/ {stats.total}
-</div>
-</div>
-<div style={{ fontSize: ‘12px’, color: COLORS.muted }}>
-{Math.round((stats.known / stats.total) * 100)}% слов выучено
-</div>
-</div>
-
-```
-  {/* Distribution bar */}
-  <div style={{ marginBottom: '24px' }}>
-    <div style={{
-      display: 'flex',
-      height: '10px',
-      borderRadius: '5px',
-      overflow: 'hidden',
-      background: COLORS.line,
-      marginBottom: '10px',
-    }}>
-      {stats.known > 0 && <div style={{ width: `${(stats.known / stats.total) * 100}%`, background: COLORS.green }} />}
-      {stats.learning > 0 && <div style={{ width: `${(stats.learning / stats.total) * 100}%`, background: COLORS.ochre }} />}
-      {stats.fresh > 0 && <div style={{ width: `${(stats.fresh / stats.total) * 100}%`, background: COLORS.line }} />}
-    </div>
-    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px' }}>
-      <LegendItem color={COLORS.green} label="Выучено" count={stats.known} />
-      <LegendItem color={COLORS.ochre} label="Изучается" count={stats.learning} />
-      <LegendItem color={COLORS.muted} label="Новое" count={stats.fresh} />
-    </div>
-  </div>
-
-  {/* Quick actions */}
-  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '24px' }}>
-    <button
-      onClick={() => { setFilter('unlearned'); setMode('cards'); }}
-      style={{
-        padding: '14px 12px',
-        background: COLORS.paper,
-        border: `1px solid ${COLORS.line}`,
-        borderRadius: '12px',
-        textAlign: 'left',
-        color: COLORS.ink,
-      }}
-    >
-      <div className="display" style={{ fontSize: '22px', marginBottom: '2px', fontWeight: 500 }}>
-        {stats.fresh + stats.learning}
-      </div>
-      <div style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.03em' }}>
-        повторить →
-      </div>
-    </button>
-    <button
-      onClick={() => setMode('quiz')}
-      style={{
-        padding: '14px 12px',
-        background: COLORS.ink,
-        border: `1px solid ${COLORS.ink}`,
-        borderRadius: '12px',
-        textAlign: 'left',
-        color: COLORS.paper,
-      }}
-    >
-      <div className="display" style={{ fontSize: '22px', marginBottom: '2px', fontWeight: 500, fontStyle: 'italic' }}>
-        Тест
-      </div>
-      <div style={{ fontSize: '11px', color: 'rgba(248,243,230,0.6)', letterSpacing: '0.03em' }}>
-        проверить себя →
-      </div>
-    </button>
-  </div>
-
-  {/* Difficult words */}
-  {difficultCards.length > 0 && (
-    <div style={{ marginBottom: '24px' }}>
-      <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.1em', marginBottom: '10px' }}>
-        СЛОЖНЫЕ СЛОВА · {difficultCards.length}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {difficultCards.slice(0, 5).map(c => (
-          <div
-            key={c.id}
-            style={{
-              padding: '10px 12px',
-              background: COLORS.paper,
-              border: `1px solid ${COLORS.line}`,
-              borderLeft: `3px solid ${COLORS.red}`,
-              borderRadius: '8px',
-              fontSize: '13px',
-            }}
-          >
-            <div className="display" style={{ fontSize: '14px', marginBottom: '2px', lineHeight: 1.3 }}>{c.de}</div>
-            <div style={{ fontSize: '11px', color: COLORS.muted, lineHeight: 1.3 }}>{c.ru}</div>
+  return (
+    <div className="fade-in">
+      <div style={{ marginBottom: '24px' }}>
+        <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.1em', marginBottom: '8px' }}>
+          ОБЩИЙ ПРОГРЕСС
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
+          <div className="display" style={{ fontSize: '64px', lineHeight: 1, fontWeight: 400, letterSpacing: '-0.03em' }}>
+            {stats.known}
           </div>
-        ))}
+          <div className="display" style={{ fontSize: '24px', color: COLORS.muted, fontStyle: 'italic' }}>
+            / {stats.total}
+          </div>
+        </div>
+        <div style={{ fontSize: '12px', color: COLORS.muted }}>
+          {Math.round((stats.known / stats.total) * 100)}% слов выучено
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', height: '10px', borderRadius: '5px', overflow: 'hidden', background: COLORS.line, marginBottom: '10px' }}>
+          {stats.known    > 0 && <div style={{ width: `${(stats.known    / stats.total) * 100}%`, background: COLORS.green }} />}
+          {stats.learning > 0 && <div style={{ width: `${(stats.learning / stats.total) * 100}%`, background: COLORS.ochre }} />}
+          {stats.fresh    > 0 && <div style={{ width: `${(stats.fresh    / stats.total) * 100}%`, background: COLORS.line  }} />}
+        </div>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px' }}>
+          <LegendItem color={COLORS.green} label="Выучено"   count={stats.known}    />
+          <LegendItem color={COLORS.ochre} label="Изучается" count={stats.learning} />
+          <LegendItem color={COLORS.muted} label="Новое"     count={stats.fresh}    />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '24px' }}>
+        <button
+          onClick={() => { setFilter('unlearned'); setMode('cards'); }}
+          style={{
+            padding: '14px 12px',
+            background: COLORS.paper,
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: '12px',
+            textAlign: 'left',
+            color: COLORS.ink,
+          }}
+        >
+          <div className="display" style={{ fontSize: '22px', marginBottom: '2px', fontWeight: 500 }}>
+            {stats.fresh + stats.learning}
+          </div>
+          <div style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.03em' }}>
+            повторить →
+          </div>
+        </button>
+        <button
+          onClick={() => setMode('quiz')}
+          style={{
+            padding: '14px 12px',
+            background: COLORS.ink,
+            border: `1px solid ${COLORS.ink}`,
+            borderRadius: '12px',
+            textAlign: 'left',
+            color: COLORS.paper,
+          }}
+        >
+          <div className="display" style={{ fontSize: '22px', marginBottom: '2px', fontWeight: 500, fontStyle: 'italic' }}>
+            Тест
+          </div>
+          <div style={{ fontSize: '11px', color: 'rgba(248,243,230,0.6)', letterSpacing: '0.03em' }}>
+            проверить себя →
+          </div>
+        </button>
+      </div>
+
+      {difficultCards.length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.1em', marginBottom: '10px' }}>
+            СЛОЖНЫЕ СЛОВА · {difficultCards.length}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {difficultCards.slice(0, 5).map(c => (
+              <div
+                key={c.id}
+                style={{
+                  padding: '10px 12px',
+                  background: COLORS.paper,
+                  border: `1px solid ${COLORS.line}`,
+                  borderLeft: `3px solid ${COLORS.red}`,
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                }}
+              >
+                <div className="display" style={{ fontSize: '14px', marginBottom: '2px', lineHeight: 1.3 }}>{c.de}</div>
+                <div style={{ fontSize: '11px', color: COLORS.muted, lineHeight: 1.3 }}>{c.ru}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={resetProgress}
+        style={{
+          width: '100%',
+          padding: '12px',
+          background: 'transparent',
+          border: `1px solid ${COLORS.line}`,
+          borderRadius: '10px',
+          color: COLORS.muted,
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          letterSpacing: '0.02em',
+        }}
+      >
+        <RotateCcw size={13} />
+        Сбросить весь прогресс
+      </button>
+
+      <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '11px', color: COLORS.muted, letterSpacing: '0.05em' }}>
+        <span className="display" style={{ fontStyle: 'italic' }}>Übung macht den Meister</span>
       </div>
     </div>
-  )}
-
-  {/* Reset */}
-  <button
-    onClick={resetProgress}
-    style={{
-      width: '100%',
-      padding: '12px',
-      background: 'transparent',
-      border: `1px solid ${COLORS.line}`,
-      borderRadius: '10px',
-      color: COLORS.muted,
-      fontSize: '12px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '6px',
-      letterSpacing: '0.02em',
-    }}
-  >
-    <RotateCcw size={13} />
-    Сбросить весь прогресс
-  </button>
-
-  <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '11px', color: COLORS.muted, letterSpacing: '0.05em' }}>
-    <span className="display" style={{ fontStyle: 'italic' }}>Übung macht den Meister</span>
-  </div>
-</div>
-```
-
-);
+  );
 }
 
 function LegendItem({ color, label, count }) {
-return (
-<div style={{ display: ‘flex’, alignItems: ‘center’, gap: ‘6px’ }}>
-<span style={{ width: ‘8px’, height: ‘8px’, borderRadius: ‘50%’, background: color }} />
-<span style={{ color: COLORS.muted }}>{label}</span>
-<span className=“mono” style={{ fontSize: ‘11px’, color: COLORS.ink }}>{count}</span>
-</div>
-);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+      <span style={{ color: COLORS.muted }}>{label}</span>
+      <span className="mono" style={{ fontSize: '11px', color: COLORS.ink }}>{count}</span>
+    </div>
+  );
 }
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
