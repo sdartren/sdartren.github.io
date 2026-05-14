@@ -1542,16 +1542,19 @@ function DeckEditor({ deck, canDelete, onSave, onDelete, onCancel }) {
 
 function QuizletHelper() {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [flashed, setFlashed] = useState(null); // 'script' | 'bookmarklet' | null
   const scriptRef = React.useRef(null);
 
-  const copyScript = async () => {
+  const BOOKMARKLET = 'javascript:' + QUIZLET_SCRIPT.replace(/\s*\n\s*/g, ' ').trim();
+
+  const copy = async (which, text) => {
     try {
-      await navigator.clipboard.writeText(QUIZLET_SCRIPT);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      await navigator.clipboard.writeText(text);
+      setFlashed(which);
+      setTimeout(() => setFlashed(f => f === which ? null : f), 1800);
     } catch (e) {
       if (scriptRef.current) {
+        scriptRef.current.value = text;
         scriptRef.current.focus();
         scriptRef.current.select();
       }
@@ -1590,43 +1593,22 @@ function QuizletHelper() {
       </button>
       {open && (
         <div style={{ padding: '0 12px 12px', fontSize: '11px', color: COLORS.muted, lineHeight: 1.55 }}>
-          <ol style={{ paddingLeft: '16px', margin: '4px 0 8px' }}>
-            <li>Откройте набор на <span className="mono" style={{ color: COLORS.ink }}>quizlet.com</span> в браузере.</li>
-            <li>Скопируйте код ниже.</li>
-            <li>
-              <b>На компьютере:</b> откройте консоль (F12 → Console), вставьте, нажмите Enter.<br />
-              <b>На телефоне:</b> добавьте код как закладку с префиксом <span className="mono">javascript:</span>, затем откройте её на странице набора.
-            </li>
-            <li>Скрипт скопирует карточки. Вернитесь сюда и вставьте в поле «Слова».</li>
+
+          <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: 600, color: COLORS.ink, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            На компьютере
+          </div>
+          <ol style={{ paddingLeft: '16px', margin: '4px 0 6px' }}>
+            <li>Откройте набор на <span className="mono" style={{ color: COLORS.ink }}>quizlet.com</span>, дождитесь загрузки.</li>
+            <li>Нажмите «Скопировать код».</li>
+            <li>На вкладке Quizlet откройте консоль: <span className="mono">F12</span> → <span className="mono">Console</span> (в Safari сначала включите меню Develop), вставьте, нажмите <span className="mono">Enter</span>.</li>
+            <li>Карточки попадут в буфер. Вставьте сюда, в поле «Слова».</li>
           </ol>
-          <textarea
-            ref={scriptRef}
-            readOnly
-            value={QUIZLET_SCRIPT}
-            onFocus={e => e.target.select()}
-            spellCheck={false}
-            style={{
-              width: '100%',
-              padding: '10px',
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '10px',
-              lineHeight: 1.45,
-              background: COLORS.bg,
-              border: `1px solid ${COLORS.line}`,
-              borderRadius: '8px',
-              color: COLORS.ink,
-              resize: 'vertical',
-              minHeight: '110px',
-              outline: 'none',
-              whiteSpace: 'pre',
-            }}
-          />
           <button
-            onClick={copyScript}
+            onClick={() => copy('script', QUIZLET_SCRIPT)}
             style={{
-              marginTop: '6px',
+              marginBottom: '12px',
               padding: '8px 12px',
-              background: copied ? COLORS.green : COLORS.ink,
+              background: flashed === 'script' ? COLORS.green : COLORS.ink,
               color: COLORS.paper,
               border: 'none',
               borderRadius: '8px',
@@ -1638,8 +1620,63 @@ function QuizletHelper() {
               letterSpacing: '0.03em',
             }}
           >
-            {copied ? <><Check size={12} /> Скопировано</> : 'Скопировать код'}
+            {flashed === 'script' ? <><Check size={12} /> Скопировано</> : 'Скопировать код'}
           </button>
+
+          <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: COLORS.ink, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            На телефоне (iPhone Safari)
+          </div>
+          <ol style={{ paddingLeft: '16px', margin: '4px 0 6px' }}>
+            <li>Нажмите «Скопировать как закладку».</li>
+            <li>В Safari откройте любую страницу → <b>Share</b> → <b>Add Bookmark</b> → Save.</li>
+            <li>Откройте Bookmarks → <b>Edit</b> → выберите этот пункт.</li>
+            <li>Сотрите URL и вставьте скопированное (начинается с <span className="mono">javascript:</span>). Переименуйте, например, в «Quizlet → буфер». Done.</li>
+            <li>Откройте набор на <span className="mono">quizlet.com</span>, нажмите на закладку.</li>
+            <li>Если появится белая область — выделите всё и скопируйте. Вернитесь сюда, вставьте в «Слова».</li>
+          </ol>
+          <button
+            onClick={() => copy('bookmarklet', BOOKMARKLET)}
+            style={{
+              padding: '8px 12px',
+              background: flashed === 'bookmarklet' ? COLORS.green : COLORS.ink,
+              color: COLORS.paper,
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: 500,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              letterSpacing: '0.03em',
+            }}
+          >
+            {flashed === 'bookmarklet' ? <><Check size={12} /> Скопировано</> : 'Скопировать как закладку'}
+          </button>
+
+          <textarea
+            ref={scriptRef}
+            readOnly
+            defaultValue={QUIZLET_SCRIPT}
+            onFocus={e => e.target.select()}
+            spellCheck={false}
+            style={{
+              marginTop: '10px',
+              width: '100%',
+              padding: '10px',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '10px',
+              lineHeight: 1.45,
+              background: COLORS.bg,
+              border: `1px solid ${COLORS.line}`,
+              borderRadius: '8px',
+              color: COLORS.ink,
+              resize: 'vertical',
+              minHeight: '90px',
+              outline: 'none',
+              whiteSpace: 'pre',
+              display: 'block',
+            }}
+          />
         </div>
       )}
     </div>
