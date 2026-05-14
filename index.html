@@ -1444,7 +1444,8 @@ function DeckEditor({ deck, canDelete, onSave, onDelete, onCancel }) {
         </div>
         <Field label={`Слова  ·  ${parsedCount} распознано`}>
           <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '6px', lineHeight: 1.4 }}>
-            Одна пара на строку. Разделитель: <span className="mono">—</span>, <span className="mono">–</span>, <span className="mono">|</span>, <span className="mono">=</span> или <span className="mono"> - </span> (с пробелами).
+            Одна пара на строку. Разделитель: <span className="mono">—</span>, <span className="mono">–</span>, <span className="mono">|</span>, <span className="mono">=</span>, <span className="mono"> - </span> или табуляция.<br />
+            Из Quizlet: ⋯ → Export → разделители «Tab» + «New line» → Copy text → вставьте сюда.
           </div>
           <textarea
             value={wordsText}
