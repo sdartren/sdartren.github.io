@@ -74,6 +74,10 @@ const Plus         = (p) => <Icon {...p}><path d="M5 12h14" /><path d="M12 5v14"
 const Pencil       = (p) => <Icon {...p}><path d="M21.17 6.81a1 1 0 0 0-3.98-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" /><path d="m15 5 4 4" /></Icon>;
 const Trash2       = (p) => <Icon {...p}><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></Icon>;
 const ChevronDown  = (p) => <Icon {...p}><path d="m6 9 6 6 6-6" /></Icon>;
+const Star         = (p) => <Icon {...p}><path d="M11.52 3.85a.5.5 0 0 1 .96 0l2.05 4.15a.5.5 0 0 0 .38.27l4.58.67a.5.5 0 0 1 .28.85l-3.32 3.23a.5.5 0 0 0-.14.45l.78 4.56a.5.5 0 0 1-.72.53l-4.1-2.15a.5.5 0 0 0-.46 0l-4.1 2.15a.5.5 0 0 1-.72-.53l.78-4.56a.5.5 0 0 0-.14-.45L4.27 9.79a.5.5 0 0 1 .28-.85l4.58-.67a.5.5 0 0 0 .38-.27z" /></Icon>;
+const Download     = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></Icon>;
+const Upload       = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></Icon>;
+const Search       = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>;
 
 // ---- Vocabulary ----
 const VOCAB = [
@@ -287,6 +291,7 @@ function App() {
   const [quizStreak, setQuizStreak] = useState(0);
   const [showDeckPicker, setShowDeckPicker] = useState(false);
   const [editingDeck, setEditingDeck] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const activeDeck = decks.find(d => d.id === activeDeckId) || decks[0] || BUILTIN_DECK;
   const deckProgress = progress[activeDeckId] || {};
@@ -369,16 +374,24 @@ function App() {
   }, [activeDeck, deckProgress]);
 
   const filteredIds = useMemo(() => {
-    const validIds = new Set(activeDeck.vocab.map(c => c.id));
-    const base = order.filter(id => validIds.has(id));
+    const byId = new Map(activeDeck.vocab.map(c => [c.id, c]));
+    let base = order.filter(id => byId.has(id));
     if (filter === 'unlearned') {
-      return base.filter(id => (deckProgress[id]?.status || 'new') !== 'known');
+      base = base.filter(id => (deckProgress[id]?.status || 'new') !== 'known');
+    } else if (filter === 'difficult') {
+      base = base.filter(id => (deckProgress[id]?.wrongCount || 0) >= 2);
+    } else if (filter === 'favorite') {
+      base = base.filter(id => deckProgress[id]?.favorite);
     }
-    if (filter === 'difficult') {
-      return base.filter(id => (deckProgress[id]?.wrongCount || 0) >= 2);
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      base = base.filter(id => {
+        const c = byId.get(id);
+        return c && ((c.de || '').toLowerCase().includes(q) || (c.ru || '').toLowerCase().includes(q));
+      });
     }
     return base;
-  }, [filter, order, deckProgress, activeDeck]);
+  }, [filter, order, deckProgress, activeDeck, searchQuery]);
 
   const safeIdx = filteredIds.length === 0 ? 0 : currentIdx % filteredIds.length;
   const currentCard = filteredIds.length === 0
@@ -401,8 +414,50 @@ function App() {
         correctCount = Math.max(0, correctCount - 1);
         newStatus = 'learning';
       }
-      return { ...p, [activeDeckId]: { ...dp, [cardId]: { status: newStatus, correctCount, wrongCount } } };
+      return { ...p, [activeDeckId]: { ...dp, [cardId]: { ...cur, status: newStatus, correctCount, wrongCount } } };
     });
+  };
+
+  const toggleFavorite = (cardId) => {
+    setProgress(p => {
+      const dp = p[activeDeckId] || {};
+      const cur = dp[cardId] || { status: 'new', correctCount: 0, wrongCount: 0 };
+      return { ...p, [activeDeckId]: { ...dp, [cardId]: { ...cur, favorite: !cur.favorite } } };
+    });
+  };
+
+  const exportData = () => {
+    const payload = { version: 1, exportedAt: new Date().toISOString(), decks, progress, settings: { direction } };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vokabel-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const importData = async (file) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data || !Array.isArray(data.decks)) {
+        alert('Файл не похож на резервную копию словаря.');
+        return;
+      }
+      if (!confirm('Заменить текущие наборы и прогресс данными из файла? Это действие нельзя отменить.')) return;
+      setDecks(data.decks.length ? data.decks : [BUILTIN_DECK]);
+      setProgress(data.progress && typeof data.progress === 'object' ? data.progress : {});
+      if (data.settings && data.settings.direction) setDirection(data.settings.direction);
+      const firstId = (data.decks[0] && data.decks[0].id) || BUILTIN_DECK.id;
+      setActiveDeckId(firstId);
+      alert('Готово. Данные загружены.');
+    } catch (e) {
+      alert('Не удалось прочитать файл: ' + e.message);
+    }
   };
 
   const next = () => {
@@ -614,6 +669,9 @@ function App() {
                 setFilter={setFilter}
                 reshuffle={reshuffle}
                 stats={stats}
+                toggleFavorite={toggleFavorite}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
               />
             )}
             {mode === 'quiz' && quizCard && (
@@ -637,6 +695,8 @@ function App() {
                 resetProgress={resetProgress}
                 setMode={setMode}
                 setFilter={setFilter}
+                exportData={exportData}
+                importData={importData}
               />
             )}
           </>
@@ -707,10 +767,91 @@ function EmptyDeck({ deck, onAdd }) {
   );
 }
 
-function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirection, currentIdx, total, next, prev, handleMark, deckProgress, filter, setFilter, reshuffle, stats }) {
-  if (!currentCard) return null;
+function SearchBar({ value, onChange }) {
+  return (
+    <div style={{ position: 'relative', marginBottom: '12px' }}>
+      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: COLORS.muted, display: 'flex' }}>
+        <Search size={14} />
+      </span>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Поиск по словарю…"
+        spellCheck={false}
+        style={{
+          width: '100%',
+          padding: '10px 34px 10px 34px',
+          background: COLORS.paper,
+          border: `1px solid ${COLORS.line}`,
+          borderRadius: '10px',
+          color: COLORS.ink,
+          fontSize: '14px',
+          fontFamily: "'Geist', sans-serif",
+          outline: 'none',
+        }}
+      />
+      {value && (
+        <button
+          onClick={() => onChange('')}
+          aria-label="Очистить"
+          style={{
+            position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+            background: 'transparent', border: 'none', color: COLORS.muted, display: 'flex', padding: '4px',
+          }}
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirection, currentIdx, total, next, prev, handleMark, deckProgress, filter, setFilter, reshuffle, stats, toggleFavorite, searchQuery, setSearchQuery }) {
+  const filterChips = (
+    <div style={{ display: 'flex', gap: '6px', marginBottom: '18px', overflowX: 'auto', paddingBottom: '2px' }}>
+      {[
+        { id: 'all',       label: `Все · ${stats.total}` },
+        { id: 'unlearned', label: `Не выучено · ${stats.fresh + stats.learning}` },
+        { id: 'favorite',  label: '⭐ Избранное' },
+        { id: 'difficult', label: 'Сложные' },
+      ].map(f => (
+        <button
+          key={f.id}
+          onClick={() => setFilter(f.id)}
+          style={{
+            padding: '4px 10px',
+            fontSize: '11px',
+            borderRadius: '12px',
+            border: `1px solid ${filter === f.id ? COLORS.ink : COLORS.line}`,
+            background: filter === f.id ? COLORS.ink : 'transparent',
+            color: filter === f.id ? COLORS.paper : COLORS.ink,
+            whiteSpace: 'nowrap',
+            letterSpacing: '0.02em',
+          }}
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (!currentCard || total === 0) {
+    return (
+      <div className="fade-in">
+        <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        {filterChips}
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: COLORS.muted, fontSize: '13px' }}>
+          {searchQuery.trim()
+            ? <>Ничего не найдено по запросу «{searchQuery.trim()}».</>
+            : 'Нет карточек для этого фильтра.'}
+        </div>
+      </div>
+    );
+  }
+
   const cardProgress = deckProgress[currentCard.id];
   const status = cardProgress?.status || 'new';
+  const isFav = !!cardProgress?.favorite;
   const statusLabel = { new: 'Новое', learning: 'Изучается', known: 'Выучено' }[status];
   const statusColor = { new: COLORS.muted, learning: COLORS.ochre, known: COLORS.green }[status];
 
@@ -762,32 +903,27 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '18px', overflowX: 'auto', paddingBottom: '2px' }}>
-        {[
-          { id: 'all',       label: `Все · ${stats.total}` },
-          { id: 'unlearned', label: `Не выучено · ${stats.fresh + stats.learning}` },
-          { id: 'difficult', label: 'Сложные' },
-        ].map(f => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            style={{
-              padding: '4px 10px',
-              fontSize: '11px',
-              borderRadius: '12px',
-              border: `1px solid ${filter === f.id ? COLORS.ink : COLORS.line}`,
-              background: filter === f.id ? COLORS.ink : 'transparent',
-              color: filter === f.id ? COLORS.paper : COLORS.ink,
-              whiteSpace: 'nowrap',
-              letterSpacing: '0.02em',
-            }}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <SearchBar value={searchQuery} onChange={setSearchQuery} />
+      {filterChips}
 
-      <div className="card-flip-container" style={{ height: '340px', marginBottom: '20px' }}>
+      <div className="card-flip-container" style={{ height: '340px', marginBottom: '20px', position: 'relative' }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(currentCard.id); }}
+          aria-label="В избранное"
+          style={{
+            position: 'absolute',
+            bottom: '14px',
+            right: '16px',
+            zIndex: 5,
+            background: 'transparent',
+            border: 'none',
+            padding: '6px',
+            color: isFav ? COLORS.ochre : (flipped ? 'rgba(248,243,230,0.5)' : COLORS.muted),
+            display: 'flex',
+          }}
+        >
+          <Star size={18} strokeWidth={2} style={{ fill: isFav ? COLORS.ochre : 'none' }} />
+        </button>
         <div
           className={`card-flip ${flipped ? 'flipped' : ''}`}
           style={{ width: '100%', height: '100%' }}
@@ -1109,7 +1245,8 @@ function QuizMode({ deck, quizCard, quizOptions, direction, setDirection, quizAn
   );
 }
 
-function StatsMode({ deck, stats, deckProgress, resetProgress, setMode, setFilter }) {
+function StatsMode({ deck, stats, deckProgress, resetProgress, setMode, setFilter, exportData, importData }) {
+  const fileRef = React.useRef(null);
   const difficultCards = deck.vocab.filter(c => (deckProgress[c.id]?.wrongCount || 0) >= 2);
   const pct = stats.total > 0 ? Math.round((stats.known / stats.total) * 100) : 0;
 
@@ -1209,6 +1346,58 @@ function StatsMode({ deck, stats, deckProgress, resetProgress, setMode, setFilte
           </div>
         </div>
       )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+        <button
+          onClick={exportData}
+          style={{
+            padding: '12px',
+            background: 'transparent',
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: '10px',
+            color: COLORS.ink,
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            letterSpacing: '0.02em',
+          }}
+        >
+          <Download size={13} />
+          Сохранить прогресс
+        </button>
+        <button
+          onClick={() => fileRef.current && fileRef.current.click()}
+          style={{
+            padding: '12px',
+            background: 'transparent',
+            border: `1px solid ${COLORS.line}`,
+            borderRadius: '10px',
+            color: COLORS.ink,
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            letterSpacing: '0.02em',
+          }}
+        >
+          <Upload size={13} />
+          Загрузить прогресс
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files && e.target.files[0];
+            importData(f);
+            e.target.value = '';
+          }}
+        />
+      </div>
 
       <button
         onClick={resetProgress}
