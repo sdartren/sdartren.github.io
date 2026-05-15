@@ -9,8 +9,36 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
 <style>
+  :root {
+    --bg: #EFE7D6;
+    --paper: #F8F3E6;
+    --ink: #1A1612;
+    --red: #A8201A;
+    --red-dark: #7C1813;
+    --ochre: #B8893A;
+    --muted: #776B5A;
+    --line: #D6CCB5;
+    --green: #3F5C3B;
+    --paper-rgb: 248,243,230;
+    --shadow-rgb: 26,22,18;
+    --grain-rgb: 26,22,18;
+  }
+  [data-theme="dark"] {
+    --bg: #17130F;
+    --paper: #221C16;
+    --ink: #ECE3D1;
+    --red: #D2564B;
+    --red-dark: #B23A30;
+    --ochre: #D4A552;
+    --muted: #9A8C76;
+    --line: #3A322A;
+    --green: #7BA06F;
+    --paper-rgb: 34,28,22;
+    --shadow-rgb: 0,0,0;
+    --grain-rgb: 236,227,209;
+  }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #EFE7D6; }
+  html, body { margin: 0; padding: 0; background: var(--bg); transition: background 0.25s ease; }
   body { font-family: 'Geist', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
   #root { min-height: 100vh; }
   .display { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
@@ -29,9 +57,16 @@
   .tab-btn { transition: all 0.2s ease; }
   .tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   @media (max-width: 360px) { .tab-label { display: none; } }
-  .grain { background-image: radial-gradient(circle at 1px 1px, rgba(26,22,18,0.04) 1px, transparent 0); background-size: 4px 4px; }
+  .grain { background-image: radial-gradient(circle at 1px 1px, rgba(var(--grain-rgb),0.04) 1px, transparent 0); background-size: 4px 4px; }
   .app-shell { max-width: 480px; margin: 0 auto; }
 </style>
+<script>
+  try {
+    var _t = localStorage.getItem('vokabel-theme');
+    var _dark = (_t === 'dark') || ((!_t || _t === 'auto') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
+  } catch (e) {}
+</script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -169,15 +204,15 @@ const VOCAB = [
 ];
 
 const COLORS = {
-  bg:      '#EFE7D6',
-  paper:   '#F8F3E6',
-  ink:     '#1A1612',
-  red:     '#A8201A',
-  redDark: '#7C1813',
-  ochre:   '#B8893A',
-  muted:   '#776B5A',
-  line:    '#D6CCB5',
-  green:   '#3F5C3B',
+  bg:      'var(--bg)',
+  paper:   'var(--paper)',
+  ink:     'var(--ink)',
+  red:     'var(--red)',
+  redDark: 'var(--red-dark)',
+  ochre:   'var(--ochre)',
+  muted:   'var(--muted)',
+  line:    'var(--line)',
+  green:   'var(--green)',
 };
 
 function shuffle(arr) {
@@ -313,6 +348,7 @@ function App() {
   const [showDeckPicker, setShowDeckPicker] = useState(false);
   const [editingDeck, setEditingDeck] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [theme, setTheme] = useState('auto');
 
   const activeDeck = decks.find(d => d.id === activeDeckId) || decks[0] || BUILTIN_DECK;
   const deckProgress = progress[activeDeckId] || {};
@@ -353,8 +389,33 @@ function App() {
         if (parsed.direction) setDirection(parsed.direction);
       }
     } catch (e) {}
+    try {
+      const t = storage.get('vokabel-theme');
+      if (t === 'light' || t === 'dark' || t === 'auto') setTheme(t);
+    } catch (e) {}
     setLoaded(true);
   }, []);
+
+  // Resolve + apply theme; track system preference when on 'auto'.
+  useEffect(() => {
+    const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    const apply = () => {
+      const resolved = theme === 'auto' ? (mq && mq.matches ? 'dark' : 'light') : theme;
+      document.documentElement.dataset.theme = resolved;
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', resolved === 'dark' ? '#17130F' : '#EFE7D6');
+    };
+    apply();
+    if (theme === 'auto' && mq) {
+      mq.addEventListener ? mq.addEventListener('change', apply) : mq.addListener(apply);
+      return () => { mq.removeEventListener ? mq.removeEventListener('change', apply) : mq.removeListener(apply); };
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    storage.set('vokabel-theme', theme);
+  }, [theme, loaded]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -745,6 +806,8 @@ function App() {
                 setFilter={setFilter}
                 exportData={exportData}
                 importData={importData}
+                theme={theme}
+                setTheme={setTheme}
               />
             )}
           </>
@@ -966,7 +1029,7 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
             background: 'transparent',
             border: 'none',
             padding: '6px',
-            color: isFav ? COLORS.ochre : (flipped ? 'rgba(248,243,230,0.5)' : COLORS.muted),
+            color: isFav ? COLORS.ochre : (flipped ? 'rgba(var(--paper-rgb),0.5)' : COLORS.muted),
             display: 'flex',
           }}
         >
@@ -984,7 +1047,7 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
               background: 'transparent',
               border: 'none',
               padding: '6px',
-              color: flipped ? 'rgba(248,243,230,0.6)' : COLORS.muted,
+              color: flipped ? 'rgba(var(--paper-rgb),0.6)' : COLORS.muted,
               display: 'flex',
             }}
           >
@@ -1005,7 +1068,7 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
               padding: '24px 22px',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 1px 0 rgba(26,22,18,0.04), 0 12px 32px -16px rgba(26,22,18,0.18)',
+              boxShadow: '0 1px 0 rgba(var(--shadow-rgb),0.04), 0 12px 32px -16px rgba(var(--shadow-rgb),0.18)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'auto' }}>
@@ -1055,11 +1118,11 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
               padding: '24px 22px',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 1px 0 rgba(26,22,18,0.04), 0 12px 32px -16px rgba(26,22,18,0.35)',
+              boxShadow: '0 1px 0 rgba(var(--shadow-rgb),0.04), 0 12px 32px -16px rgba(var(--shadow-rgb),0.35)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="mono" style={{ fontSize: '10px', color: 'rgba(248,243,230,0.5)', letterSpacing: '0.1em' }}>
+              <div className="mono" style={{ fontSize: '10px', color: 'rgba(var(--paper-rgb),0.5)', letterSpacing: '0.1em' }}>
                 № {currentCard.id} · {backLang}
               </div>
               <div className="mono" style={{ fontSize: '10px', color: COLORS.ochre, letterSpacing: '0.1em' }}>
@@ -1080,7 +1143,7 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
               </div>
             </div>
 
-            <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(248,243,230,0.5)', letterSpacing: '0.05em' }}>
+            <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(var(--paper-rgb),0.5)', letterSpacing: '0.05em' }}>
               оцените, насколько знаете ↓
             </div>
           </div>
@@ -1205,7 +1268,7 @@ function QuizMode({ deck, quizCard, quizOptions, direction, setDirection, quizAn
         borderRadius: '16px',
         padding: '24px 20px',
         marginBottom: '18px',
-        boxShadow: '0 1px 0 rgba(26,22,18,0.04), 0 12px 32px -16px rgba(26,22,18,0.18)',
+        boxShadow: '0 1px 0 rgba(var(--shadow-rgb),0.04), 0 12px 32px -16px rgba(var(--shadow-rgb),0.18)',
       }}>
         <div className="mono" style={{ fontSize: '10px', color: COLORS.muted, letterSpacing: '0.1em', marginBottom: '14px', textAlign: 'center' }}>
           ВЫБЕРИТЕ ПРАВИЛЬНЫЙ ПЕРЕВОД · {promptLang}
@@ -1412,7 +1475,7 @@ function ListMode({ deck, deckProgress, direction, searchQuery, setSearchQuery, 
   );
 }
 
-function StatsMode({ deck, stats, deckProgress, resetProgress, setMode, setFilter, exportData, importData }) {
+function StatsMode({ deck, stats, deckProgress, resetProgress, setMode, setFilter, exportData, importData, theme, setTheme }) {
   const fileRef = React.useRef(null);
   const difficultCards = deck.vocab.filter(c => (deckProgress[c.id]?.wrongCount || 0) >= 2);
   const pct = stats.total > 0 ? Math.round((stats.known / stats.total) * 100) : 0;
@@ -1482,7 +1545,7 @@ function StatsMode({ deck, stats, deckProgress, resetProgress, setMode, setFilte
           <div className="display" style={{ fontSize: '22px', marginBottom: '2px', fontWeight: 500, fontStyle: 'italic' }}>
             Тест
           </div>
-          <div style={{ fontSize: '11px', color: 'rgba(248,243,230,0.6)', letterSpacing: '0.03em' }}>
+          <div style={{ fontSize: '11px', color: 'rgba(var(--paper-rgb),0.6)', letterSpacing: '0.03em' }}>
             проверить себя →
           </div>
         </button>
@@ -1513,6 +1576,35 @@ function StatsMode({ deck, stats, deckProgress, resetProgress, setMode, setFilte
           </div>
         </div>
       )}
+
+      <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.1em', marginBottom: '8px' }}>
+        ОФОРМЛЕНИЕ
+      </div>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '18px' }}>
+        {[
+          { id: 'auto',  label: 'Авто' },
+          { id: 'light', label: 'Светлая' },
+          { id: 'dark',  label: 'Тёмная' },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTheme(t.id)}
+            style={{
+              flex: 1,
+              padding: '9px 8px',
+              fontSize: '12px',
+              borderRadius: '10px',
+              border: `1px solid ${theme === t.id ? COLORS.ink : COLORS.line}`,
+              background: theme === t.id ? COLORS.ink : 'transparent',
+              color: theme === t.id ? COLORS.paper : COLORS.ink,
+              fontWeight: 500,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
         <button
@@ -1623,7 +1715,7 @@ function Modal({ title, onClose, children }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(26,22,18,0.55)',
+        background: 'rgba(var(--shadow-rgb),0.55)',
         zIndex: 50,
         display: 'flex',
         alignItems: 'flex-end',
@@ -1641,7 +1733,7 @@ function Modal({ title, onClose, children }) {
           borderRadius: '20px 20px 0 0',
           padding: '14px 18px 22px',
           overflowY: 'auto',
-          boxShadow: '0 -20px 60px -10px rgba(26,22,18,0.4)',
+          boxShadow: '0 -20px 60px -10px rgba(var(--shadow-rgb),0.4)',
           animation: 'fadeIn 0.25s ease',
         }}
       >
@@ -1685,7 +1777,7 @@ function DeckPicker({ decks, activeDeckId, progress, onSelect, onClose, onEdit, 
           const known = d.vocab.filter(c => dp[c.id]?.status === 'known').length;
           const isActive = d.id === activeDeckId;
           const canDelete = decks.length > 1;
-          const dividerColor = isActive ? 'rgba(248,243,230,0.2)' : COLORS.line;
+          const dividerColor = isActive ? 'rgba(var(--paper-rgb),0.2)' : COLORS.line;
           return (
             <div
               key={d.id}
