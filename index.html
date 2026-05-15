@@ -272,6 +272,23 @@ function migrateProgress(progressObj) {
   return out;
 }
 
+function normalizeAnswer(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[.,;:!?„“”"«»()\[\]]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Acceptable variants of the target side, split on / or , or ; or "—".
+function acceptableAnswers(card, direction) {
+  const target = direction === 'de-ru' ? card.ru : card.de;
+  return String(target || '')
+    .split(/[\/,;]|\s—\s|\s–\s/)
+    .map(normalizeAnswer)
+    .filter(Boolean);
+}
+
 const TTS_OK = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
 const hasCyrillic = (s) => /[Ѐ-ӿ]/.test(s || '');
@@ -393,6 +410,7 @@ function App() {
   const [quizOptions, setQuizOptions] = useState([]);
   const [quizAnswered, setQuizAnswered] = useState(null);
   const [quizStreak, setQuizStreak] = useState(0);
+  const [quizSubMode, setQuizSubMode] = useState('choice');
   const [showDeckPicker, setShowDeckPicker] = useState(false);
   const [editingDeck, setEditingDeck] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -703,6 +721,12 @@ function App() {
     }
   };
 
+  const gradeQuiz = (correct) => {
+    if (!quizCard) return;
+    markCard(quizCard.id, correct ? 'known' : 'unknown');
+    setQuizStreak(s => correct ? s + 1 : 0);
+  };
+
   const nextQuiz = () => buildQuiz();
 
   const progressPct = stats.total > 0 ? (stats.known / stats.total) * 100 : 0;
@@ -838,6 +862,9 @@ function App() {
                 handleQuizAnswer={handleQuizAnswer}
                 nextQuiz={nextQuiz}
                 quizStreak={quizStreak}
+                quizSubMode={quizSubMode}
+                setQuizSubMode={setQuizSubMode}
+                gradeQuiz={gradeQuiz}
               />
             )}
             {mode === 'list' && (
@@ -1286,14 +1313,14 @@ function ActionBtn({ onClick, color, icon, label }) {
   );
 }
 
-function QuizMode({ deck, quizCard, quizOptions, direction, setDirection, quizAnswered, handleQuizAnswer, nextQuiz, quizStreak }) {
+function QuizMode({ deck, quizCard, quizOptions, direction, setDirection, quizAnswered, handleQuizAnswer, nextQuiz, quizStreak, quizSubMode, setQuizSubMode, gradeQuiz }) {
   const prompt = direction === 'de-ru' ? quizCard.de : quizCard.ru;
   const promptLang = direction === 'de-ru' ? (deck.frontLabel || 'DE') : (deck.backLabel || 'RU');
   const optionLang = direction === 'de-ru' ? (deck.backLabel || 'RU') : (deck.frontLabel || 'DE');
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.08em' }}>
           СЕРИЯ: <span style={{ color: quizStreak > 0 ? COLORS.green : COLORS.muted }}>{quizStreak}</span>
         </div>
@@ -1316,6 +1343,46 @@ function QuizMode({ deck, quizCard, quizOptions, direction, setDirection, quizAn
           {promptLang}<ArrowLeftRight size={10} />{optionLang}
         </button>
       </div>
+
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
+        {[
+          { id: 'choice', label: 'Выбор' },
+          { id: 'write',  label: 'Напиши' },
+          { id: 'listen', label: 'Слушай' },
+        ].map(s => (
+          <button
+            key={s.id}
+            onClick={() => { setQuizSubMode(s.id); nextQuiz(); }}
+            style={{
+              flex: 1,
+              padding: '8px 6px',
+              fontSize: '12px',
+              borderRadius: '9px',
+              border: `1px solid ${quizSubMode === s.id ? COLORS.ink : COLORS.line}`,
+              background: quizSubMode === s.id ? COLORS.ink : 'transparent',
+              color: quizSubMode === s.id ? COLORS.paper : COLORS.ink,
+              fontWeight: 500,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {quizSubMode !== 'choice' && (
+        <WriteListenMode
+          key={quizCard.id + '|' + quizSubMode + '|' + direction}
+          deck={deck}
+          card={quizCard}
+          direction={direction}
+          listen={quizSubMode === 'listen'}
+          gradeQuiz={gradeQuiz}
+          nextQuiz={nextQuiz}
+        />
+      )}
+
+      {quizSubMode === 'choice' && (<>
 
       <div className="grain" style={{
         background: COLORS.paper,
@@ -1442,6 +1509,165 @@ function QuizMode({ deck, quizCard, quizOptions, direction, setDirection, quizAn
             justifyContent: 'center',
             gap: '8px',
             letterSpacing: '0.02em',
+          }}
+        >
+          Следующее <ChevronRight size={16} />
+        </button>
+      )}
+      </>)}
+    </div>
+  );
+}
+
+function WriteListenMode({ deck, card, direction, listen, gradeQuiz, nextQuiz }) {
+  const [value, setValue] = useState('');
+  const [result, setResult] = useState(null); // null | { correct, expected }
+  const inputRef = React.useRef(null);
+
+  const prompt = direction === 'de-ru' ? card.de : card.ru;
+  const expected = direction === 'de-ru' ? card.ru : card.de;
+  const promptLang = direction === 'de-ru' ? (deck.frontLabel || 'DE') : (deck.backLabel || 'RU');
+  const ttsText = direction === 'de-ru' ? card.de : card.ru;
+
+  useEffect(() => {
+    if (listen && TTS_OK) speak(ttsText, deck.ttsLang);
+    if (inputRef.current) inputRef.current.focus();
+  }, []);
+
+  const submit = () => {
+    if (result) return;
+    const ok = acceptableAnswers(card, direction).includes(normalizeAnswer(value));
+    setResult({ correct: ok, expected });
+    gradeQuiz(ok);
+  };
+
+  const reveal = () => {
+    if (result) return;
+    setResult({ correct: false, expected });
+    gradeQuiz(false);
+  };
+
+  const borderColor = result ? (result.correct ? COLORS.green : COLORS.red) : COLORS.line;
+
+  return (
+    <div className="fade-in">
+      <div className="grain" style={{
+        background: COLORS.paper,
+        border: `1px solid ${COLORS.line}`,
+        borderRadius: '16px',
+        padding: '24px 20px',
+        marginBottom: '16px',
+        boxShadow: '0 1px 0 rgba(var(--shadow-rgb),0.04), 0 12px 32px -16px rgba(var(--shadow-rgb),0.18)',
+      }}>
+        <div className="mono" style={{ fontSize: '10px', color: COLORS.muted, letterSpacing: '0.1em', marginBottom: '14px', textAlign: 'center' }}>
+          {listen ? 'ПРОСЛУШАЙТЕ И НАПИШИТЕ ПЕРЕВОД' : `НАПИШИТЕ ПЕРЕВОД · ${promptLang}`}
+        </div>
+        {listen ? (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={() => speak(ttsText, deck.ttsLang)}
+              aria-label="Прослушать"
+              style={{
+                background: COLORS.ink,
+                color: COLORS.paper,
+                border: 'none',
+                borderRadius: '999px',
+                width: '64px',
+                height: '64px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Volume2 size={26} />
+            </button>
+          </div>
+        ) : (
+          <div className="display" style={{
+            fontSize: prompt.length > 70 ? '20px' : '24px',
+            lineHeight: 1.3,
+            textAlign: 'center',
+            fontStyle: direction === 'de-ru' ? 'normal' : 'italic',
+            letterSpacing: '-0.01em',
+          }}>
+            {prompt}
+          </div>
+        )}
+        {listen && result && (
+          <div className="display" style={{ marginTop: '16px', fontSize: '18px', textAlign: 'center', color: COLORS.muted }}>
+            {prompt}
+          </div>
+        )}
+      </div>
+
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') (result ? nextQuiz() : submit()); }}
+        placeholder="Ваш ответ…"
+        spellCheck={false}
+        readOnly={!!result}
+        style={{
+          width: '100%',
+          padding: '14px',
+          background: COLORS.paper,
+          border: `1.5px solid ${borderColor}`,
+          borderRadius: '12px',
+          color: COLORS.ink,
+          fontSize: '16px',
+          fontFamily: "'Geist', sans-serif",
+          outline: 'none',
+          marginBottom: '12px',
+        }}
+      />
+
+      {result && (
+        <div className="fade-in" style={{
+          padding: '12px 14px',
+          borderRadius: '10px',
+          marginBottom: '12px',
+          background: result.correct ? COLORS.green : COLORS.red,
+          color: COLORS.paper,
+          fontSize: '13px',
+          lineHeight: 1.4,
+        }}>
+          {result.correct ? 'Верно!' : <>Правильный ответ: <b>{result.expected}</b></>}
+        </div>
+      )}
+
+      {!result ? (
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={reveal}
+            style={{
+              flex: 1, padding: '14px', background: 'transparent',
+              border: `1px solid ${COLORS.line}`, borderRadius: '12px',
+              color: COLORS.muted, fontSize: '13px',
+            }}
+          >
+            Не знаю
+          </button>
+          <button
+            onClick={submit}
+            style={{
+              flex: 2, padding: '14px', background: COLORS.ink,
+              color: COLORS.paper, border: 'none', borderRadius: '12px',
+              fontSize: '14px', fontWeight: 500,
+            }}
+          >
+            Проверить
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={nextQuiz}
+          className="fade-in"
+          style={{
+            width: '100%', padding: '14px', background: COLORS.ink,
+            color: COLORS.paper, border: 'none', borderRadius: '12px',
+            fontSize: '14px', fontWeight: 500,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
           }}
         >
           Следующее <ChevronRight size={16} />
