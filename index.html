@@ -78,6 +78,7 @@ const Star         = (p) => <Icon {...p}><path d="M11.52 3.85a.5.5 0 0 1 .96 0l2
 const Download     = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></Icon>;
 const Upload       = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></Icon>;
 const Search       = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>;
+const Volume2      = (p) => <Icon {...p}><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3l3.8 3.8a.7.7 0 0 0 1.2-.5z" /><path d="M16 9a5 5 0 0 1 0 6" /><path d="M19.4 6.6a9 9 0 0 1 0 10.8" /></Icon>;
 
 // ---- Vocabulary ----
 const VOCAB = [
@@ -185,6 +186,22 @@ function shuffle(arr) {
   return a;
 }
 
+const TTS_OK = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+const hasCyrillic = (s) => /[Ѐ-ӿ]/.test(s || '');
+
+// Speak text. Russian text is auto-detected; otherwise use the deck's lang.
+function speak(text, deckLang) {
+  if (!TTS_OK || !text) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = hasCyrillic(text) ? 'ru-RU' : (deckLang || 'de-DE');
+    u.rate = 0.92;
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
 // localStorage-backed storage helper
 const storage = {
   get(key) {
@@ -205,6 +222,7 @@ const BUILTIN_DECK = {
   subtitle: 'Словарь по теме «Экономика»',
   frontLabel: 'DE',
   backLabel: 'RU',
+  ttsLang: 'de-DE',
   vocab: VOCAB,
 };
 
@@ -302,7 +320,9 @@ function App() {
       const raw = storage.get('vokabel-decks');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) setDecks(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setDecks(parsed.map(d => ({ ttsLang: 'de-DE', ...d })));
+        }
       }
     } catch (e) {}
     // Active deck
@@ -924,6 +944,25 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
         >
           <Star size={18} strokeWidth={2} style={{ fill: isFav ? COLORS.ochre : 'none' }} />
         </button>
+        {TTS_OK && (
+          <button
+            onClick={(e) => { e.stopPropagation(); speak(flipped ? back : front, deck.ttsLang); }}
+            aria-label="Произнести"
+            style={{
+              position: 'absolute',
+              bottom: '14px',
+              left: '16px',
+              zIndex: 5,
+              background: 'transparent',
+              border: 'none',
+              padding: '6px',
+              color: flipped ? 'rgba(248,243,230,0.6)' : COLORS.muted,
+              display: 'flex',
+            }}
+          >
+            <Volume2 size={18} strokeWidth={2} />
+          </button>
+        )}
         <div
           className={`card-flip ${flipped ? 'flipped' : ''}`}
           style={{ width: '100%', height: '100%' }}
@@ -1152,6 +1191,27 @@ function QuizMode({ deck, quizCard, quizOptions, direction, setDirection, quizAn
         }}>
           {prompt}
         </div>
+        {TTS_OK && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '14px' }}>
+            <button
+              onClick={() => speak(prompt, deck.ttsLang)}
+              aria-label="Произнести"
+              style={{
+                background: 'transparent',
+                border: `1px solid ${COLORS.line}`,
+                borderRadius: '999px',
+                padding: '7px 14px',
+                color: COLORS.ink,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+              }}
+            >
+              <Volume2 size={14} /> Прослушать
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
@@ -1630,6 +1690,7 @@ function DeckEditor({ deck, canDelete, onSave, onDelete, onCancel }) {
   const [subtitle, setSubtitle] = useState(deck.subtitle || '');
   const [frontLabel, setFrontLabel] = useState(deck.frontLabel || 'DE');
   const [backLabel, setBackLabel] = useState(deck.backLabel || 'RU');
+  const [ttsLang, setTtsLang] = useState(deck.ttsLang || 'de-DE');
   const [wordsText, setWordsText] = useState(vocabToText(deck.vocab));
 
   const parsedCount = useMemo(() => parseVocabText(wordsText, deck.vocab || []).length, [wordsText, deck.vocab]);
@@ -1642,6 +1703,7 @@ function DeckEditor({ deck, canDelete, onSave, onDelete, onCancel }) {
       subtitle: subtitle.trim(),
       frontLabel: frontLabel.trim() || 'DE',
       backLabel: backLabel.trim() || 'RU',
+      ttsLang: ttsLang.trim() || 'de-DE',
       vocab,
     };
     onSave(updated, isNew);
@@ -1673,6 +1735,9 @@ function DeckEditor({ deck, canDelete, onSave, onDelete, onCancel }) {
             <Input value={backLabel} onChange={setBackLabel} placeholder="RU" />
           </Field>
         </div>
+        <Field label="Язык озвучки (код, напр. de-DE, en-US, es-ES)">
+          <Input value={ttsLang} onChange={setTtsLang} placeholder="de-DE" />
+        </Field>
         <Field label={`Слова  ·  ${parsedCount} распознано`}>
           <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '6px', lineHeight: 1.4 }}>
             Одна пара на строку. Разделитель: <span className="mono">—</span>, <span className="mono">–</span>, <span className="mono">|</span>, <span className="mono">=</span>, <span className="mono"> - </span> или табуляция.
