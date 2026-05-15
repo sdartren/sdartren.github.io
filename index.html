@@ -27,6 +27,8 @@
   button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   button:active { transform: scale(0.97); }
   .tab-btn { transition: all 0.2s ease; }
+  .tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 360px) { .tab-label { display: none; } }
   .grain { background-image: radial-gradient(circle at 1px 1px, rgba(26,22,18,0.04) 1px, transparent 0); background-size: 4px 4px; }
   .app-shell { max-width: 480px; margin: 0 auto; }
 </style>
@@ -79,6 +81,7 @@ const Download     = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0
 const Upload       = (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></Icon>;
 const Search       = (p) => <Icon {...p}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>;
 const Volume2      = (p) => <Icon {...p}><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h3l3.8 3.8a.7.7 0 0 0 1.2-.5z" /><path d="M16 9a5 5 0 0 1 0 6" /><path d="M19.4 6.6a9 9 0 0 1 0 10.8" /></Icon>;
+const BookOpen     = (p) => <Icon {...p}><path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></Icon>;
 
 // ---- Vocabulary ----
 const VOCAB = [
@@ -505,6 +508,18 @@ function App() {
     setFlipped(false);
   };
 
+  const openCardInCards = (cardId) => {
+    setFilter('all');
+    setSearchQuery('');
+    setOrder(prev => {
+      const idx = prev.indexOf(cardId);
+      setCurrentIdx(idx >= 0 ? idx : 0);
+      return prev;
+    });
+    setFlipped(false);
+    setMode('cards');
+  };
+
   const resetProgress = () => {
     if (confirm(`Сбросить прогресс набора «${activeDeck.name}»?`)) {
       setProgress(p => ({ ...p, [activeDeckId]: {} }));
@@ -633,6 +648,7 @@ function App() {
           {[
             { id: 'cards', label: 'Карточки', icon: Layers },
             { id: 'quiz',  label: 'Тест',     icon: Brain },
+            { id: 'list',  label: 'Список',   icon: BookOpen },
             { id: 'stats', label: 'Прогресс', icon: BarChart3 },
           ].map(t => {
             const Ic = t.icon;
@@ -644,22 +660,23 @@ function App() {
                 className="tab-btn"
                 style={{
                   flex: 1,
-                  padding: '10px 8px',
+                  padding: '10px 6px',
                   background: active ? COLORS.ink : 'transparent',
                   color: active ? COLORS.paper : COLORS.ink,
                   border: `1px solid ${active ? COLORS.ink : COLORS.line}`,
                   borderRadius: '8px',
-                  fontSize: '13px',
+                  fontSize: '12px',
                   fontWeight: 500,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
+                  gap: '5px',
                   letterSpacing: '0.01em',
+                  minWidth: 0,
                 }}
               >
-                <Ic size={14} strokeWidth={2} />
-                {t.label}
+                <Ic size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
+                <span className="tab-label">{t.label}</span>
               </button>
             );
           })}
@@ -705,6 +722,17 @@ function App() {
                 handleQuizAnswer={handleQuizAnswer}
                 nextQuiz={nextQuiz}
                 quizStreak={quizStreak}
+              />
+            )}
+            {mode === 'list' && (
+              <ListMode
+                deck={activeDeck}
+                deckProgress={deckProgress}
+                direction={direction}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                toggleFavorite={toggleFavorite}
+                openCard={openCardInCards}
               />
             )}
             {mode === 'stats' && (
@@ -1301,6 +1329,85 @@ function QuizMode({ deck, quizCard, quizOptions, direction, setDirection, quizAn
           Следующее <ChevronRight size={16} />
         </button>
       )}
+    </div>
+  );
+}
+
+function ListMode({ deck, deckProgress, direction, searchQuery, setSearchQuery, toggleFavorite, openCard }) {
+  const q = searchQuery.trim().toLowerCase();
+  const rows = deck.vocab.filter(c =>
+    !q || (c.de || '').toLowerCase().includes(q) || (c.ru || '').toLowerCase().includes(q)
+  );
+  const statusColor = (s) => ({ new: COLORS.muted, learning: COLORS.ochre, known: COLORS.green }[s || 'new']);
+
+  return (
+    <div className="fade-in">
+      <SearchBar value={searchQuery} onChange={setSearchQuery} />
+      <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.06em', margin: '2px 2px 12px' }}>
+        {rows.length} / {deck.vocab.length}
+      </div>
+      {rows.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '36px 20px', color: COLORS.muted, fontSize: '13px' }}>
+          {q ? <>Ничего не найдено по запросу «{searchQuery.trim()}».</> : 'Набор пуст.'}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {rows.map(c => {
+          const cp = deckProgress[c.id];
+          const fav = !!cp?.favorite;
+          const top = direction === 'de-ru' ? c.de : c.ru;
+          const bottom = direction === 'de-ru' ? c.ru : c.de;
+          return (
+            <div
+              key={c.id}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                padding: '12px 12px',
+                background: COLORS.paper,
+                border: `1px solid ${COLORS.line}`,
+                borderRadius: '10px',
+              }}
+            >
+              <span style={{
+                width: '7px', height: '7px', borderRadius: '50%',
+                background: statusColor(cp?.status), marginTop: '6px', flexShrink: 0,
+              }} />
+              <button
+                onClick={() => openCard(c.id)}
+                style={{
+                  flex: 1, minWidth: 0, textAlign: 'left',
+                  background: 'transparent', border: 'none', padding: 0, color: COLORS.ink,
+                }}
+              >
+                <div className="display" style={{ fontSize: '15px', lineHeight: 1.3, marginBottom: '2px' }}>
+                  {top}
+                </div>
+                <div style={{ fontSize: '12px', color: COLORS.muted, lineHeight: 1.3 }}>
+                  {bottom}
+                </div>
+              </button>
+              {TTS_OK && (
+                <button
+                  onClick={() => speak(direction === 'de-ru' ? c.de : c.ru, deck.ttsLang)}
+                  aria-label="Произнести"
+                  style={{ background: 'transparent', border: 'none', padding: '4px', color: COLORS.muted, display: 'flex', flexShrink: 0 }}
+                >
+                  <Volume2 size={15} />
+                </button>
+              )}
+              <button
+                onClick={() => toggleFavorite(c.id)}
+                aria-label="В избранное"
+                style={{ background: 'transparent', border: 'none', padding: '4px', color: fav ? COLORS.ochre : COLORS.muted, display: 'flex', flexShrink: 0 }}
+              >
+                <Star size={15} style={{ fill: fav ? COLORS.ochre : 'none' }} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
