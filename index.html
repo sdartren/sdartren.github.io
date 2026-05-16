@@ -328,14 +328,14 @@ const BUILTIN_DECK = {
 };
 
 // Parse a textarea of "front — back" lines into [{id, de, ru}].
-// Allowed separators (surrounded by whitespace, except tab): — – | = and " - "
+// Separators: — – | = , " - ", a tab, or a gap of 2+ spaces (two-column docs).
 function parseVocabText(text, existingVocab = []) {
   const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
   const keyMap = new Map(existingVocab.map(c => [`${c.de}|||${c.ru}`, c.id]));
   let nextId = (existingVocab.reduce((m, c) => Math.max(m, c.id || 0), 0)) + 1;
   const out = [];
   for (const line of lines) {
-    const m = line.match(/^(.+?)(?:\s+[—–|=]\s+|\s+-\s+|\t)(.+)$/);
+    const m = line.match(/^(.+?)(?:\s+[—–|=]\s+|\s+-\s+|\t+|\s{2,})(.+)$/);
     if (!m) continue;
     const de = m[1].trim();
     const ru = m[2].trim();
@@ -349,6 +349,65 @@ function parseVocabText(text, existingVocab = []) {
 
 function vocabToText(vocab) {
   return (vocab || []).map(c => `${c.de} — ${c.ru}`).join('\n');
+}
+
+// Lazy-load a CDN script once; resolves when it's ready.
+const _loaded = {};
+function loadExternalScript(src) {
+  if (_loaded[src]) return _loaded[src];
+  _loaded[src] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => { _loaded[src] = null; reject(new Error('Не удалось загрузить ' + src)); };
+    document.head.appendChild(s);
+  });
+  return _loaded[src];
+}
+
+const PDFJS_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const MAMMOTH_SRC = 'https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js';
+
+async function extractPdfText(file) {
+  await loadExternalScript(PDFJS_SRC);
+  const pdfjsLib = window.pdfjsLib;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+  const data = new Uint8Array(await file.arrayBuffer());
+  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  const lines = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    let lastY = null, cur = '';
+    for (const it of content.items) {
+      const y = it.transform ? it.transform[5] : null;
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) {
+        lines.push(cur.replace(/[ \t]+/g, m => (m.length > 1 ? '  ' : ' ')).trim());
+        cur = '';
+      }
+      cur += it.str + (it.hasEOL ? '\n' : ' ');
+      lastY = y;
+    }
+    if (cur.trim()) lines.push(cur.trim());
+  }
+  return lines.join('\n');
+}
+
+async function extractDocxText(file) {
+  await loadExternalScript(MAMMOTH_SRC);
+  const arrayBuffer = await file.arrayBuffer();
+  const res = await window.mammoth.extractRawText({ arrayBuffer });
+  return res.value || '';
+}
+
+async function extractDocumentText(file) {
+  const name = (file.name || '').toLowerCase();
+  if (name.endsWith('.pdf') || file.type === 'application/pdf') return extractPdfText(file);
+  if (name.endsWith('.docx')) return extractDocxText(file);
+  if (name.endsWith('.txt') || file.type === 'text/plain') return file.text();
+  if (name.endsWith('.doc')) throw new Error('Старый формат .doc не поддерживается. Сохраните как .docx или .pdf.');
+  throw new Error('Поддерживаются PDF, DOCX и TXT.');
 }
 
 function App() {
@@ -2141,8 +2200,31 @@ function DeckEditor({ deck, canDelete, onSave, onDelete, onCancel }) {
   const [backLabel, setBackLabel] = useState(deck.backLabel || 'RU');
   const [ttsLang, setTtsLang] = useState(deck.ttsLang || 'de-DE');
   const [wordsText, setWordsText] = useState(vocabToText(deck.vocab));
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState('');
+  const docInputRef = React.useRef(null);
 
   const parsedCount = useMemo(() => parseVocabText(wordsText, deck.vocab || []).length, [wordsText, deck.vocab]);
+
+  const handleDocImport = async (file) => {
+    if (!file) return;
+    setImporting(true);
+    setImportMsg('Извлечение текста…');
+    try {
+      const text = await extractDocumentText(file);
+      const clean = String(text || '').replace(/ /g, ' ').trimEnd();
+      if (!clean.trim()) {
+        setImportMsg('В документе не найден текст (возможно, это скан).');
+      } else {
+        setWordsText(prev => (prev.trim() ? prev.replace(/\s*$/, '') + '\n' + clean : clean));
+        setImportMsg('Готово. Проверьте разделитель и удалите лишние строки.');
+      }
+    } catch (e) {
+      setImportMsg(e.message || 'Не удалось прочитать документ.');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleSave = () => {
     const vocab = parseVocabText(wordsText, deck.vocab || []);
@@ -2189,8 +2271,47 @@ function DeckEditor({ deck, canDelete, onSave, onDelete, onCancel }) {
         </Field>
         <Field label={`Слова  ·  ${parsedCount} распознано`}>
           <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '6px', lineHeight: 1.4 }}>
-            Одна пара на строку. Разделитель: <span className="mono">—</span>, <span className="mono">–</span>, <span className="mono">|</span>, <span className="mono">=</span>, <span className="mono"> - </span> или табуляция.
+            Одна пара на строку. Разделитель: <span className="mono">—</span>, <span className="mono">–</span>, <span className="mono">|</span>, <span className="mono">=</span>, <span className="mono"> - </span>, табуляция или 2+ пробела.
           </div>
+          <button
+            type="button"
+            onClick={() => docInputRef.current && docInputRef.current.click()}
+            disabled={importing}
+            style={{
+              marginBottom: '8px',
+              padding: '10px 12px',
+              background: 'transparent',
+              border: `1px dashed ${COLORS.muted}`,
+              borderRadius: '10px',
+              color: COLORS.ink,
+              fontSize: '12px',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              width: '100%',
+              opacity: importing ? 0.6 : 1,
+            }}
+          >
+            <Upload size={14} /> {importing ? 'Извлечение…' : 'Импорт из PDF / Word / TXT'}
+          </button>
+          <input
+            ref={docInputRef}
+            type="file"
+            accept=".pdf,.docx,.txt,application/pdf,text/plain"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.target.files && e.target.files[0];
+              handleDocImport(f);
+              e.target.value = '';
+            }}
+          />
+          {importMsg && (
+            <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '8px', lineHeight: 1.4 }}>
+              {importMsg}
+            </div>
+          )}
           <textarea
             value={wordsText}
             onChange={e => setWordsText(e.target.value)}
