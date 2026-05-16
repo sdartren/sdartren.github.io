@@ -52,10 +52,6 @@
   .fade-in { animation: fadeIn 0.35s ease-out; }
   @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
   .shake { animation: shake 0.35s ease-in-out; }
-  @keyframes slideInRight { from { opacity: 0; transform: translateX(60%); } to { opacity: 1; transform: translateX(0); } }
-  @keyframes slideInLeft  { from { opacity: 0; transform: translateX(-60%); } to { opacity: 1; transform: translateX(0); } }
-  .slide-next { animation: slideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
-  .slide-prev { animation: slideInLeft 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
   button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   button:active { transform: scale(0.97); }
   .tab-btn { transition: all 0.2s ease; }
@@ -1006,10 +1002,6 @@ function SearchBar({ value, onChange }) {
 
 function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirection, currentIdx, total, next, prev, handleMark, deckProgress, filter, setFilter, reshuffle, stats, toggleFavorite, searchQuery, setSearchQuery }) {
   const touch = React.useRef({ x: 0, y: 0, swiped: false });
-  const [slideDir, setSlideDir] = useState(null);
-
-  const goNext = () => { setSlideDir('next'); next(); };
-  const goPrev = () => { setSlideDir('prev'); prev(); };
 
   const onTouchStart = (e) => {
     const t = e.changedTouches[0];
@@ -1021,7 +1013,7 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
     const dy = t.clientY - touch.current.y;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
       touch.current.swiped = true;
-      if (dx < 0) goNext(); else goPrev();
+      if (dx < 0) next(); else prev();
     }
   };
   const onCardClick = () => {
@@ -1124,10 +1116,6 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
 
       {filterChips}
 
-      <div
-        key={currentCard.id}
-        className={slideDir === 'next' ? 'slide-next' : slideDir === 'prev' ? 'slide-prev' : ''}
-      >
       <div className="card-flip-container" style={{ height: '340px', marginBottom: '20px', position: 'relative' }}>
         <button
           onClick={(e) => { e.stopPropagation(); toggleFavorite(currentCard.id); }}
@@ -1262,7 +1250,6 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
           </div>
         </div>
       </div>
-      </div>
 
       <div style={{
         display: 'grid',
@@ -1277,7 +1264,7 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
 
       <div style={{ display: 'flex', gap: '8px' }}>
         <button
-          onClick={goPrev}
+          onClick={prev}
           style={{
             flex: 1,
             padding: '12px',
@@ -1295,7 +1282,7 @@ function CardsMode({ deck, currentCard, flipped, setFlipped, direction, setDirec
           <ChevronLeft size={16} /> Назад
         </button>
         <button
-          onClick={goNext}
+          onClick={next}
           style={{
             flex: 1,
             padding: '12px',
