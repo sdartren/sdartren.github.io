@@ -1,6 +1,5 @@
-// Wordie service worker — offline-first for the app shell,
-// stale-while-revalidate for CDN resources.
-const VERSION = 'wordie-v1';
+// Wordie service worker — same-origin only, keeps hands off CDN requests.
+const VERSION = 'wordie-v2';
 const SHELL = [
   './',
   './index.html',
@@ -14,15 +13,17 @@ const SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(VERSION).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(VERSION)
+      .then(cache => Promise.all(SHELL.map(url => cache.add(url).catch(() => {}))))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -31,48 +32,52 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
-  const sameOrigin = url.origin === self.location.origin;
+  // Hard rule: do not intercept cross-origin requests. The browser handles
+  // CDN scripts/fonts natively; proxying them through the SW caused iOS
+  // Safari to drop the responses and leave the page blank.
+  if (url.origin !== self.location.origin) return;
 
-  // Navigation: network-first so updates land quickly, cache fallback offline.
+  // App shell navigation: network-first so updates propagate; cache fallback
+  // keeps the app usable offline.
   if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(VERSION).then(c => c.put('./index.html', copy)).catch(() => {});
+    event.respondWith((async () => {
+      try {
+        const res = await fetch(req);
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(VERSION).then(c => c.put('./index.html', copy)).catch(() => {});
+        }
         return res;
-      }).catch(() => caches.match('./index.html').then(r => r || caches.match('./')))
-    );
+      } catch (e) {
+        const cached = await caches.match('./index.html');
+        return cached || (await caches.match('./'));
+      }
+    })());
     return;
   }
 
-  if (sameOrigin) {
-    // Cache-first for shell assets, network fallback with cache update.
-    event.respondWith(
-      caches.match(req).then(cached => {
-        const net = fetch(req).then(res => {
-          if (res && res.status === 200) {
-            const copy = res.clone();
-            caches.open(VERSION).then(c => c.put(req, copy)).catch(() => {});
-          }
-          return res;
-        }).catch(() => cached);
-        return cached || net;
-      })
-    );
-    return;
-  }
-
-  // Cross-origin (CDN: React, Babel, fonts, pdf.js, mammoth): stale-while-revalidate.
-  event.respondWith(
-    caches.match(req).then(cached => {
-      const net = fetch(req).then(res => {
-        if (res && (res.status === 200 || res.type === 'opaque')) {
+  // Other same-origin assets (icons, manifest): cache-first with background
+  // refresh.
+  event.respondWith((async () => {
+    const cached = await caches.match(req);
+    if (cached) {
+      fetch(req).then(res => {
+        if (res && res.status === 200) {
           const copy = res.clone();
           caches.open(VERSION).then(c => c.put(req, copy)).catch(() => {});
         }
-        return res;
-      }).catch(() => cached);
-      return cached || net;
-    })
-  );
+      }).catch(() => {});
+      return cached;
+    }
+    try {
+      const res = await fetch(req);
+      if (res && res.status === 200) {
+        const copy = res.clone();
+        caches.open(VERSION).then(c => c.put(req, copy)).catch(() => {});
+      }
+      return res;
+    } catch (e) {
+      return new Response('', { status: 504, statusText: 'offline' });
+    }
+  })());
 });
