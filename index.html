@@ -435,7 +435,7 @@ function App() {
   const [decks, setDecks] = useState([BUILTIN_DECK]);
   const [activeDeckId, setActiveDeckId] = useState('wirtschaft');
   const [progress, setProgress] = useState({});
-  const [mode, setMode] = useState('cards');
+  const [mode, setMode] = useState('home');
   const [direction, setDirection] = useState('de-ru');
   const [currentIdx, setCurrentIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -447,7 +447,6 @@ function App() {
   const [quizAnswered, setQuizAnswered] = useState(null);
   const [quizStreak, setQuizStreak] = useState(0);
   const [quizSubMode, setQuizSubMode] = useState('choice');
-  const [showDeckPicker, setShowDeckPicker] = useState(false);
   const [editingDeck, setEditingDeck] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState('auto');
@@ -712,7 +711,6 @@ function App() {
       setActiveDeckId(next ? next.id : BUILTIN_DECK.id);
     }
     setEditingDeck(null);
-    setShowDeckPicker(false);
   };
 
   const buildQuiz = () => {
@@ -774,9 +772,10 @@ function App() {
             {(activeDeck.folder || '').toUpperCase()}
           </span>
         </div>
+        {mode !== 'home' && (<>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', gap: '8px' }}>
           <button
-            onClick={() => setShowDeckPicker(true)}
+            onClick={() => setMode('home')}
             style={{
               background: 'transparent',
               border: 'none',
@@ -803,7 +802,6 @@ function App() {
             }}>
               {activeDeck.name}
             </h1>
-            <ChevronDown size={16} strokeWidth={2} style={{ opacity: 0.55, flexShrink: 0 }} />
           </button>
           <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.05em', flexShrink: 0 }}>
             {stats.known}/{stats.total}
@@ -816,9 +814,11 @@ function App() {
         <div style={{ height: '3px', background: COLORS.line, borderRadius: '2px', overflow: 'hidden', marginBottom: '16px' }}>
           <div style={{ height: '100%', width: `${progressPct}%`, background: COLORS.red, transition: 'width 0.5s ease' }} />
         </div>
+        </>)}
 
         <div style={{ display: 'flex', gap: '4px' }}>
           {[
+            { id: 'home',  label: 'Главная' },
             { id: 'cards', label: 'Карточки' },
             { id: 'quiz',  label: 'Тест' },
             { id: 'list',  label: 'Список' },
@@ -854,7 +854,26 @@ function App() {
       </header>
 
       <main style={{ padding: '20px' }}>
-        {activeDeck.vocab.length === 0 ? (
+        {mode === 'home' ? (
+          <HomeMode
+            decks={decks}
+            activeDeckId={activeDeckId}
+            progress={progress}
+            onSelect={(id) => { setActiveDeckId(id); setMode('cards'); }}
+            onEdit={(deck) => setEditingDeck(deck)}
+            onDelete={deleteDeck}
+            onNew={() => setEditingDeck({
+              isNew: true,
+              id: '',
+              name: '',
+              folder: '',
+              subtitle: '',
+              frontLabel: 'DE',
+              backLabel: 'RU',
+              vocab: [],
+            })}
+          />
+        ) : activeDeck.vocab.length === 0 ? (
           <EmptyDeck deck={activeDeck} onAdd={() => setEditingDeck(activeDeck)} />
         ) : (
           <>
@@ -925,28 +944,6 @@ function App() {
           </>
         )}
       </main>
-
-      {showDeckPicker && (
-        <DeckPicker
-          decks={decks}
-          activeDeckId={activeDeckId}
-          progress={progress}
-          onSelect={(id) => { setActiveDeckId(id); setShowDeckPicker(false); }}
-          onClose={() => setShowDeckPicker(false)}
-          onEdit={(deck) => setEditingDeck(deck)}
-          onDelete={deleteDeck}
-          onNew={() => setEditingDeck({
-            isNew: true,
-            id: '',
-            name: '',
-            folder: '',
-            subtitle: '',
-            frontLabel: 'DE',
-            backLabel: 'RU',
-            vocab: [],
-          })}
-        />
-      )}
 
       {editingDeck && (
         <DeckEditor
@@ -2151,7 +2148,7 @@ function DeckRow({ d, isActive, canDelete, progress, onSelect, onEdit, onDelete 
   );
 }
 
-function DeckPicker({ decks, activeDeckId, progress, onSelect, onClose, onEdit, onNew, onDelete }) {
+function HomeMode({ decks, activeDeckId, progress, onSelect, onEdit, onNew, onDelete }) {
   const canDelete = decks.length > 1;
   const groups = {};
   for (const d of decks) {
@@ -2162,59 +2159,60 @@ function DeckPicker({ decks, activeDeckId, progress, onSelect, onClose, onEdit, 
   const order = [...named, ...(groups[''] ? [''] : [])];
 
   return (
-    <Modal title="Wordie · Наборы" onClose={onClose}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {order.map(folder => (
-          <div key={folder || '__none'} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div className="mono" style={{
-              fontSize: '11px',
-              color: COLORS.muted,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              marginTop: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}>
-              <Layers size={12} />
-              {folder || 'Без папки'}
-            </div>
-            {groups[folder].map(d => (
-              <DeckRow
-                key={d.id}
-                d={d}
-                isActive={d.id === activeDeckId}
-                canDelete={canDelete}
-                progress={progress}
-                onSelect={onSelect}
-                onEdit={onEdit}
-                onDelete={onDelete}
-              />
-            ))}
-          </div>
-        ))}
-        <button
-          onClick={onNew}
-          style={{
-            marginTop: '6px',
-            padding: '14px',
-            background: 'transparent',
-            border: `1.5px dashed ${COLORS.muted}`,
-            borderRadius: '12px',
-            color: COLORS.ink,
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div className="mono" style={{ fontSize: '11px', color: COLORS.muted, letterSpacing: '0.1em', marginBottom: '4px' }}>
+        ВЫБЕРИТЕ ИЛИ СОЗДАЙТЕ НАБОР
+      </div>
+      {order.map(folder => (
+        <div key={folder || '__none'} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="mono" style={{
+            fontSize: '11px',
+            color: COLORS.muted,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            marginTop: '10px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            fontSize: '14px',
-            fontWeight: 500,
-          }}
-        >
-          <Plus size={16} />
-          Новый набор
-        </button>
-      </div>
-    </Modal>
+            gap: '6px',
+          }}>
+            <Layers size={12} />
+            {folder || 'Без папки'}
+          </div>
+          {groups[folder].map(d => (
+            <DeckRow
+              key={d.id}
+              d={d}
+              isActive={d.id === activeDeckId}
+              canDelete={canDelete}
+              progress={progress}
+              onSelect={onSelect}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      ))}
+      <button
+        onClick={onNew}
+        style={{
+          marginTop: '14px',
+          padding: '16px',
+          background: 'transparent',
+          border: `1.5px dashed ${COLORS.muted}`,
+          borderRadius: '12px',
+          color: COLORS.ink,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          fontSize: '14px',
+          fontWeight: 500,
+        }}
+      >
+        <Plus size={16} />
+        Новый набор
+      </button>
+    </div>
   );
 }
 
